@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Settings, Calendar, Clock, DollarSign } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
+import HolidaysManagement from "@/components/holidays-management";
 
 export default function AdminSettings() {
   const { user } = useAuth();
@@ -149,9 +150,7 @@ export default function AdminSettings() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Verwalten Sie gesetzliche Feiertage für die Arbeitszeit-Berechnung.
                 </p>
-                <Button variant="outline" className="w-full" data-testid="button-manage-holidays">
-                  Feiertage verwalten
-                </Button>
+                <HolidaysManagement />
               </CardContent>
             </Card>
 

@@ -2,6 +2,7 @@ import MainLayout from "@/components/layout/main-layout";
 import BalanceCards from "@/components/dashboard/balance-cards";
 import TimerWidget from "@/components/dashboard/timer-widget";
 import TimeEntriesTable from "@/components/time-entries/time-entries-table";
+import AdminSetup from "@/components/admin-setup";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function Dashboard() {
@@ -31,7 +32,11 @@ export default function Dashboard() {
         </header>
 
         <div className="flex-1 p-6 overflow-auto">
-          <BalanceCards />
+          <AdminSetup />
+          
+          <div className="mt-6">
+            <BalanceCards />
+          </div>
           
           <div className="mt-8">
             <TimeEntriesTable 

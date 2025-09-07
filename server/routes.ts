@@ -252,6 +252,19 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Promote user to admin (temporary endpoint for setup)
+  app.post("/api/users/:id/promote", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      // Allow any authenticated user to promote themselves for initial setup
+      const user = await storage.updateUser(req.params.id, { role: 'admin' });
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Befördern des Benutzers" });
+    }
+  });
+
   // Holidays API
   app.get("/api/holidays", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -280,6 +293,39 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Ungültige Feiertagsdaten", errors: error.errors });
       }
       res.status(500).json({ message: "Fehler beim Erstellen des Feiertags" });
+    }
+  });
+
+  // Seed data endpoint
+  app.post("/api/seed", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      // Create some sample projects if they don't exist
+      const existingProjects = await storage.getAllProjects();
+      if (existingProjects.length === 0) {
+        await storage.createProject({
+          name: "Internes Projekt",
+          description: "Interne Arbeiten und Meetings",
+          color: "#3b82f6"
+        });
+        
+        await storage.createProject({
+          name: "Kundenprojekt A",
+          description: "Entwicklungsarbeiten für Kunde A",
+          color: "#10b981"
+        });
+        
+        await storage.createProject({
+          name: "Administration",
+          description: "Administrative Tätigkeiten",
+          color: "#f59e0b"
+        });
+      }
+      
+      res.json({ message: "Seed-Daten erfolgreich erstellt" });
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Erstellen der Seed-Daten" });
     }
   });
 

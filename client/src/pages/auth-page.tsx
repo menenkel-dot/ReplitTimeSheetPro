@@ -11,13 +11,7 @@ import { Clock, Users, BarChart, Shield } from "lucide-react";
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
-
-  // Redirect if already logged in
-  if (user) {
-    setLocation("/");
-    return null;
-  }
-
+  
   const [loginForm, setLoginForm] = useState({
     username: "",
     password: "",
@@ -30,6 +24,12 @@ export default function AuthPage() {
     firstName: "",
     lastName: "",
   });
+
+  // Redirect if already logged in - moved after all hook calls
+  if (user) {
+    setLocation("/");
+    return null;
+  }
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();

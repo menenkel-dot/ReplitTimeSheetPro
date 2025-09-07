@@ -44,11 +44,11 @@ export interface IStorage {
   createWorkingHours(workingHours: InsertWorkingHours): Promise<WorkingHours>;
   updateWorkingHours(id: string, workingHours: Partial<InsertWorkingHours>): Promise<WorkingHours>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
-  public sessionStore: session.SessionStore;
+  public sessionStore: session.Store;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
@@ -117,14 +117,19 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(projects, eq(timeEntries.projectId, projects.id))
       .where(eq(timeEntries.userId, userId));
 
+    let whereConditions = [eq(timeEntries.userId, userId)];
+    
     if (startDate && endDate) {
-      query = query.where(
-        and(
-          eq(timeEntries.userId, userId),
-          gte(timeEntries.date, startDate),
-          lte(timeEntries.date, endDate)
-        )
-      );
+      whereConditions.push(gte(timeEntries.date, startDate));
+      whereConditions.push(lte(timeEntries.date, endDate));
+      query = db.select({
+        timeEntry: timeEntries,
+        user: users,
+        project: projects,
+      }).from(timeEntries)
+        .leftJoin(users, eq(timeEntries.userId, users.id))
+        .leftJoin(projects, eq(timeEntries.projectId, projects.id))
+        .where(and(...whereConditions));
     }
 
     const results = await query.orderBy(desc(timeEntries.date), desc(timeEntries.startTime));

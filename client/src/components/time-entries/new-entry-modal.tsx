@@ -160,7 +160,7 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
                       <div className="flex items-center gap-2">
                         <div 
                           className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: project.color }}
+                          style={{ backgroundColor: project.color || '#3b82f6' }}
                         />
                         {project.name}
                       </div>

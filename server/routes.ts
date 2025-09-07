@@ -117,7 +117,6 @@ export function registerRoutes(app: Express): Server {
       );
 
       const hasOverlap = existingEntries.some(entry => {
-        if (entry.id === entryData.id) return false;
         if (!entry.startTime || !entry.endTime || !entryData.startTime || !entryData.endTime) return false;
         
         const entryStart = new Date(entry.startTime).getTime();

@@ -20,8 +20,18 @@ export default function AdminSetup() {
         method: "POST",
         credentials: "include"
       });
-      if (!res.ok) throw new Error("Fehler beim Befördern zum Admin");
-      return res.json();
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Fehler beim Befördern zum Admin: ${errorText}`);
+      }
+      
+      // Check if response is JSON
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        return res.json();
+      } else {
+        return {}; // Return empty object if not JSON
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
@@ -45,8 +55,18 @@ export default function AdminSetup() {
         method: "POST",
         credentials: "include"
       });
-      if (!res.ok) throw new Error("Fehler beim Erstellen der Seed-Daten");
-      return res.json();
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Fehler beim Erstellen der Seed-Daten: ${errorText}`);
+      }
+      
+      // Check if response is JSON
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        return res.json();
+      } else {
+        return {}; // Return empty object if not JSON
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });

@@ -314,8 +314,8 @@ export default function AdminUsers() {
                                 type="number" 
                                 step="1"
                                 {...field}
-                                onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                                value={field.value || ""}
+                                onChange={e => field.onChange(e.target.value ? Number(e.target.value) : 8)}
+                                value={field.value || 8}
                                 data-testid="input-targetHoursPerDay" 
                               />
                             </FormControl>
@@ -498,8 +498,8 @@ export default function AdminUsers() {
                           type="number" 
                           step="1"
                           {...field}
-                          onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                          value={field.value || ""}
+                          onChange={e => field.onChange(e.target.value ? Number(e.target.value) : 8)}
+                          value={field.value || 8}
                           data-testid="input-edit-targetHoursPerDay" 
                         />
                       </FormControl>

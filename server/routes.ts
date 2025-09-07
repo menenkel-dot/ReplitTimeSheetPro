@@ -2,8 +2,18 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertProjectSchema, insertTimeEntrySchema, insertHolidaySchema } from "@shared/schema";
+import { insertProjectSchema, insertTimeEntrySchema, insertHolidaySchema, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -252,6 +262,42 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.post("/api/users", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+
+    try {
+      const userData = insertUserSchema.parse({
+        ...req.body,
+        password: await hashPassword(req.body.password),
+        isActive: true
+      });
+      const user = await storage.createUser(userData);
+      res.status(201).json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Ungültige Benutzerdaten", errors: error.errors });
+      }
+      res.status(500).json({ message: "Fehler beim Erstellen des Benutzers" });
+    }
+  });
+
+  app.put("/api/users/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+
+    try {
+      const userData = { ...req.body };
+      if (userData.password) {
+        userData.password = await hashPassword(userData.password);
+      }
+      const user = await storage.updateUser(req.params.id, userData);
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Aktualisieren des Benutzers" });
+    }
+  });
+
   // Promote user to admin (temporary endpoint for setup)
   app.post("/api/users/:id/promote", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -293,6 +339,34 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Ungültige Feiertagsdaten", errors: error.errors });
       }
       res.status(500).json({ message: "Fehler beim Erstellen des Feiertags" });
+    }
+  });
+
+  app.put("/api/holidays/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+
+    try {
+      const holidayData = {
+        ...req.body,
+        date: new Date(req.body.date)
+      };
+      const holiday = await storage.updateHoliday(req.params.id, holidayData);
+      res.json(holiday);
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Aktualisieren des Feiertags" });
+    }
+  });
+
+  app.delete("/api/holidays/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+
+    try {
+      await storage.deleteHoliday(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Löschen des Feiertags" });
     }
   });
 

@@ -38,6 +38,8 @@ export interface IStorage {
   // Holidays
   getAllHolidays(): Promise<Holiday[]>;
   createHoliday(holiday: InsertHoliday): Promise<Holiday>;
+  updateHoliday(id: string, holiday: Partial<InsertHoliday>): Promise<Holiday>;
+  deleteHoliday(id: string): Promise<void>;
   
   // Working Hours
   getWorkingHoursByUser(userId: string): Promise<WorkingHours[]>;
@@ -191,6 +193,15 @@ export class DatabaseStorage implements IStorage {
   async createHoliday(insertHoliday: InsertHoliday): Promise<Holiday> {
     const [holiday] = await db.insert(holidays).values(insertHoliday).returning();
     return holiday;
+  }
+
+  async updateHoliday(id: string, updateHoliday: Partial<InsertHoliday>): Promise<Holiday> {
+    const [holiday] = await db.update(holidays).set(updateHoliday).where(eq(holidays.id, id)).returning();
+    return holiday;
+  }
+
+  async deleteHoliday(id: string): Promise<void> {
+    await db.delete(holidays).where(eq(holidays.id, id));
   }
 
   // Working Hours

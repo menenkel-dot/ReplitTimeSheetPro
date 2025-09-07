@@ -77,7 +77,11 @@ export default function AdminUsers() {
 
   const createUserMutation = useMutation({
     mutationFn: async (data: z.infer<typeof userSchema>) => {
-      const res = await apiRequest("POST", "/api/users", data);
+      const submitData = {
+        ...data,
+        hourlyRate: data.hourlyRate !== null ? data.hourlyRate.toString() : null
+      };
+      const res = await apiRequest("POST", "/api/users", submitData);
       return res.json();
     },
     onSuccess: () => {
@@ -103,6 +107,9 @@ export default function AdminUsers() {
       const updateData = { ...data };
       if (!updateData.password) {
         delete updateData.password;
+      }
+      if (updateData.hourlyRate !== null) {
+        updateData.hourlyRate = updateData.hourlyRate.toString();
       }
       const res = await apiRequest("PUT", `/api/users/${id}`, updateData);
       return res.json();

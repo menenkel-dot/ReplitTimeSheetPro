@@ -26,7 +26,7 @@ const userSchema = z.object({
   password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
   role: z.enum(["employee", "admin"]),
   hourlyRate: z.coerce.number().min(0, "Stundenlohn muss positiv sein").optional(),
-  targetHoursPerDay: z.number().min(0, "Zielstunden pro Tag müssen positiv sein").default(8),
+  targetHoursPerDay: z.coerce.number().min(0, "Zielstunden pro Tag müssen positiv sein").default(8),
   isActive: z.boolean()
 });
 

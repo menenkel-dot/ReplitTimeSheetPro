@@ -25,7 +25,8 @@ const userSchema = z.object({
   email: z.string().email("Ungültige E-Mail-Adresse").optional().or(z.literal("")),
   password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
   role: z.enum(["employee", "admin"]),
-  hourlyRate: z.number().min(0, "Stundenlohn muss positiv sein").optional(),
+  hourlyRate: z.coerce.number().min(0, "Stundenlohn muss positiv sein").optional(),
+  targetHoursPerDay: z.number().min(0, "Zielstunden pro Tag müssen positiv sein").default(8),
   isActive: z.boolean()
 });
 
@@ -52,8 +53,9 @@ export default function AdminUsers() {
       lastName: "",
       email: "",
       password: "",
-      role: "employee",
+      role: "employee" as const,
       hourlyRate: undefined,
+      targetHoursPerDay: 8,
       isActive: true
     }
   });
@@ -298,6 +300,28 @@ export default function AdminUsers() {
                         )}
                       />
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={createForm.control}
+                        name="targetHoursPerDay"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Zielstunden pro Tag</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                step="1"
+                                {...field}
+                                onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                                value={field.value || ""}
+                                data-testid="input-targetHoursPerDay" 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     <FormField
                       control={createForm.control}
                       name="isActive"
@@ -461,6 +485,26 @@ export default function AdminUsers() {
                     )}
                   />
                 </div>
+                 <FormField
+                  control={editForm.control}
+                  name="targetHoursPerDay"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Zielstunden pro Tag</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="1"
+                          {...field}
+                          onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          value={field.value || ""}
+                          data-testid="input-edit-targetHoursPerDay" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={editForm.control}
                   name="isActive"

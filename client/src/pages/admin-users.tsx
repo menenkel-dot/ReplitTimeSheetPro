@@ -25,7 +25,7 @@ const userSchema = z.object({
   email: z.string().email("Ungültige E-Mail-Adresse").optional().or(z.literal("")),
   password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
   role: z.enum(["employee", "admin"]),
-  hourlyRate: z.coerce.number().min(0, "Stundenlohn muss positiv sein").optional(),
+  hourlyRate: z.coerce.number().min(0, "Stundenlohn muss positiv sein").nullable(),
   targetHoursPerDay: z.coerce.number().min(0, "Zielstunden pro Tag müssen positiv sein").default(8),
   isActive: z.boolean()
 });
@@ -54,7 +54,7 @@ export default function AdminUsers() {
       email: "",
       password: "",
       role: "employee" as const,
-      hourlyRate: undefined,
+      hourlyRate: null,
       targetHoursPerDay: 8,
       isActive: true
     }
@@ -69,7 +69,7 @@ export default function AdminUsers() {
       email: "",
       password: "",
       role: "employee",
-      hourlyRate: undefined,
+      hourlyRate: null,
       targetHoursPerDay: 8,
       isActive: true
     }
@@ -144,7 +144,7 @@ export default function AdminUsers() {
       email: user.email || "",
       password: "",
       role: user.role,
-      hourlyRate: user.hourlyRate ? Number(user.hourlyRate) : undefined,
+      hourlyRate: user.hourlyRate !== null ? Number(user.hourlyRate) : null,
       targetHoursPerDay: user.targetHoursPerDay || 8,
       isActive: user.isActive === null ? true : user.isActive
     });
@@ -292,8 +292,8 @@ export default function AdminUsers() {
                                 type="number" 
                                 step="0.01"
                                 {...field}
-                                onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                                value={field.value || ""}
+                                onChange={e => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
+                                value={field.value ?? ""}
                                 data-testid="input-hourly-rate" 
                               />
                             </FormControl>
@@ -477,8 +477,8 @@ export default function AdminUsers() {
                             type="number" 
                             step="0.01"
                             {...field}
-                            onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                            value={field.value || ""}
+                            onChange={e => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
+                            value={field.value ?? ""}
                             data-testid="input-edit-hourly-rate" 
                           />
                         </FormControl>
@@ -640,7 +640,7 @@ export default function AdminUsers() {
                           </Badge>
                         </td>
                         <td className="py-3">
-                          {user.hourlyRate ? `${user.hourlyRate}€/h` : "-"}
+                          {user.hourlyRate !== null ? `${user.hourlyRate}€/h` : "-"}
                         </td>
                         <td className="py-3">
                           <Button

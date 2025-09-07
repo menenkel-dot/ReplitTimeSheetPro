@@ -1,0 +1,60 @@
+Erstelle eine Webapp für mein unternehmen zum erfassen und verwalten von arbeitszeiten
+
+Ziel & Kernfunktionen
+
+Jeder Mitarbeiter hat einen eigenen Account Benutzername + Passwort.
+
+Nach Login kann man Arbeitszeiten erfassen, bearbeiten, löschen.
+
+Pro Nutzer wird ein aktueller Saldo der geleisteten Arbeitszeit vs. Sollzeit angezeigt.
+
+Admin-Rolle kann Nutzer, Projekte und Sollzeiten verwalten sowie Auswertungen exportieren.
+
+
+Rollen & Rechte
+
+Mitarbeiter: Eigenes Profil sehen/bearbeiten, Zeiten für sich erfassen/bearbeiten/löschen, eigenen Saldo sehen, eigene Exporte.
+
+Admin: Alles wie Mitarbeiter + Nutzerverwaltung (CRUD), Projekte/Kostenstellen (CRUD), Personalkostenberechnung nach hinterlegtem Stundenlohn, Sollzeiten/Vorgaben konfigurieren, Team-Reports, Exporte, Genehmigungen.
+Dashboard (Mitarbeiter):
+
+Heute/Woche/Monat auf einen Blick: geleistet, Soll, aktueller Saldo (farbcodiert: positiv grün, negativ rot).
+
+Schnellaktion „Zeit starten/stoppen“ (Timer) und „Neuer Eintrag“ (Dialog).
+
+
+Zeiterfassung:
+
+Tabelle mit Filtern (Datum, Projekt, Status) + Inline-Edit.
+
+Formularfelder: Datum (Datepicker), Start/Ende (Timepicker), Pause (Minuten), Projekt (Dropdown), Beschreibung (Textarea).
+
+Schaltflächen: Speichern, Einreichen (wenn Workflow aktiv), Löschen.
+Reports & Export:
+
+Zeitraum wählen, Gruppierung nach Tag/Projekt.
+
+Export als CSV/XLSX/PDF (mit Summen/Saldo).
+Adminbereich:
+
+Nutzerliste (aktiv/inaktiv, Rolle), Projekte, Feiertage, Sollzeiten (pro Wochentag/Person), Genehmigungen, Audit-Log.
+UI-Details (Design)
+
+Helles, neutrales Design, klare Typografie.
+
+Komponenten: Datentabelle mit Sticky-Header, Badge für Status, Dialoge/Toasts.
+
+Datum-/Zeit-Picker in 24h-Format, Locale de-DE.
+Akzeptanzkriterien
+
+1. Mitarbeiter kann sich, einloggen, Zeiten anlegen/bearbeiten/löschen und sofort den aktuellen Saldo sehen.
+
+
+2. Saldo wird korrekt aus Sollstunden (Mo–Fr 8h) minus Feiertage + geleistete Stunden berechnet.
+
+
+3. Admin kann Nutzer/Projekte/Sollzeiten verwalten, Einträge genehmigen/ablehnen und Reports als CSV/XLSX/PDF exportieren.
+
+
+4. Überlappende Zeiten werden serverseitig verhindert.
+Bitte die App lauf- und klickfertig erzeugen, inkl. Migrations, Seed-Daten, und Accounts 

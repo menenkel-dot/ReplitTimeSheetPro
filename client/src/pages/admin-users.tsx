@@ -70,6 +70,7 @@ export default function AdminUsers() {
       password: "",
       role: "employee",
       hourlyRate: undefined,
+      targetHoursPerDay: 8,
       isActive: true
     }
   });
@@ -144,6 +145,7 @@ export default function AdminUsers() {
       password: "",
       role: user.role,
       hourlyRate: user.hourlyRate ? Number(user.hourlyRate) : undefined,
+      targetHoursPerDay: user.targetHoursPerDay || 8,
       isActive: user.isActive === null ? true : user.isActive
     });
   };

@@ -80,15 +80,29 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const { startDate, endDate } = req.query;
-      const userId = req.user.role === 'admin' && req.query.userId 
-        ? req.query.userId as string 
-        : req.user.id;
-
-      const entries = await storage.getTimeEntriesByUser(
-        userId,
-        startDate ? new Date(startDate as string) : undefined,
-        endDate ? new Date(endDate as string) : undefined
-      );
+      
+      let entries;
+      if (req.user.role === 'admin' && req.query.userId) {
+        // Admin requesting specific user's entries
+        entries = await storage.getTimeEntriesByUser(
+          req.query.userId as string,
+          startDate ? new Date(startDate as string) : undefined,
+          endDate ? new Date(endDate as string) : undefined
+        );
+      } else if (req.user.role === 'admin' && !req.query.userId) {
+        // Admin requesting all entries
+        entries = await storage.getAllTimeEntries(
+          startDate ? new Date(startDate as string) : undefined,
+          endDate ? new Date(endDate as string) : undefined
+        );
+      } else {
+        // Regular user requesting their own entries
+        entries = await storage.getTimeEntriesByUser(
+          req.user.id,
+          startDate ? new Date(startDate as string) : undefined,
+          endDate ? new Date(endDate as string) : undefined
+        );
+      }
       
       res.json(entries);
     } catch (error) {
@@ -381,15 +395,28 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Start- und Enddatum sind erforderlich" });
       }
 
-      const userId = req.user.role === 'admin' && req.query.userId 
-        ? req.query.userId as string 
-        : req.user.id;
-
-      const entries = await storage.getTimeEntriesByUser(
-        userId,
-        new Date(startDate as string),
-        new Date(endDate as string)
-      );
+      let entries;
+      if (req.user.role === 'admin' && req.query.userId) {
+        // Admin requesting specific user's entries
+        entries = await storage.getTimeEntriesByUser(
+          req.query.userId as string,
+          new Date(startDate as string),
+          new Date(endDate as string)
+        );
+      } else if (req.user.role === 'admin' && !req.query.userId) {
+        // Admin requesting all entries
+        entries = await storage.getAllTimeEntries(
+          new Date(startDate as string),
+          new Date(endDate as string)
+        );
+      } else {
+        // Regular user requesting their own entries
+        entries = await storage.getTimeEntriesByUser(
+          req.user.id,
+          new Date(startDate as string),
+          new Date(endDate as string)
+        );
+      }
 
       // Group and process data based on groupBy parameter
       let processedData;

@@ -19,14 +19,14 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
   getAllUsers(): Promise<User[]>;
-  
+
   // Projects
   getAllProjects(): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: string, project: Partial<InsertProject>): Promise<Project>;
   deleteProject(id: string): Promise<void>;
-  
+
   // Time Entries
   getTimeEntriesByUser(userId: string, startDate?: Date, endDate?: Date): Promise<TimeEntryWithRelations[]>;
   getTimeEntry(id: string): Promise<TimeEntryWithRelations | undefined>;
@@ -34,19 +34,18 @@ export interface IStorage {
   updateTimeEntry(id: string, entry: Partial<InsertTimeEntry>): Promise<TimeEntry>;
   deleteTimeEntry(id: string): Promise<void>;
   getRunningTimeEntry(userId: string): Promise<TimeEntry | undefined>;
-  
+  getAllTimeEntries(startDate?: Date, endDate?: Date): Promise<TimeEntryWithRelations[]>;
+
   // Holidays
   getAllHolidays(): Promise<Holiday[]>;
   createHoliday(holiday: InsertHoliday): Promise<Holiday>;
   updateHoliday(id: string, holiday: Partial<InsertHoliday>): Promise<Holiday>;
   deleteHoliday(id: string): Promise<void>;
-  
+
   // Working Hours
   getWorkingHoursByUser(userId: string): Promise<WorkingHours[]>;
   createWorkingHours(workingHours: InsertWorkingHours): Promise<WorkingHours>;
   updateWorkingHours(id: string, workingHours: Partial<InsertWorkingHours>): Promise<WorkingHours>;
-  
-  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -85,7 +84,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Projects
-  async getAllProjects(): Promise<Project[]> {
+  async getAllProjects(): Promise<Project[]>{
     return await db.select().from(projects).where(eq(projects.isActive, true)).orderBy(asc(projects.name));
   }
 
@@ -109,57 +108,110 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Time Entries
-  async getTimeEntriesByUser(userId: string, startDate?: Date, endDate?: Date): Promise<TimeEntryWithRelations[]> {
-    let query = db.select({
-      timeEntry: timeEntries,
-      user: users,
-      project: projects,
-    }).from(timeEntries)
-      .leftJoin(users, eq(timeEntries.userId, users.id))
-      .leftJoin(projects, eq(timeEntries.projectId, projects.id))
-      .where(eq(timeEntries.userId, userId));
-
+  async getTimeEntriesByUser(
+    userId: string, 
+    startDate?: Date, 
+    endDate?: Date
+  ): Promise<TimeEntryWithRelations[]> {
     let whereConditions = [eq(timeEntries.userId, userId)];
-    
+
     if (startDate && endDate) {
-      whereConditions.push(gte(timeEntries.date, startDate));
-      whereConditions.push(lte(timeEntries.date, endDate));
-      query = db.select({
-        timeEntry: timeEntries,
-        user: users,
-        project: projects,
-      }).from(timeEntries)
-        .leftJoin(users, eq(timeEntries.userId, users.id))
-        .leftJoin(projects, eq(timeEntries.projectId, projects.id))
-        .where(and(...whereConditions));
+      whereConditions.push(
+        gte(timeEntries.date, startDate),
+        lte(timeEntries.date, endDate)
+      );
     }
 
-    const results = await query.orderBy(desc(timeEntries.date), desc(timeEntries.startTime));
-    
-    return results.map(result => ({
-      ...result.timeEntry,
-      user: result.user || undefined,
-      project: result.project || undefined,
-    }));
-  }
-
-  async getTimeEntry(id: string): Promise<TimeEntryWithRelations | undefined> {
-    const [result] = await db.select({
-      timeEntry: timeEntries,
-      user: users,
-      project: projects,
-    }).from(timeEntries)
+    return await db
+      .select({
+        id: timeEntries.id,
+        userId: timeEntries.userId,
+        projectId: timeEntries.projectId,
+        date: timeEntries.date,
+        startTime: timeEntries.startTime,
+        endTime: timeEntries.endTime,
+        breakMinutes: timeEntries.breakMinutes,
+        description: timeEntries.description,
+        status: timeEntries.status,
+        isRunning: timeEntries.isRunning,
+        createdAt: timeEntries.createdAt,
+        updatedAt: timeEntries.updatedAt,
+        user: {
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          role: users.role
+        },
+        project: {
+          id: projects.id,
+          name: projects.name,
+          description: projects.description,
+          color: projects.color
+        }
+      })
+      .from(timeEntries)
       .leftJoin(users, eq(timeEntries.userId, users.id))
       .leftJoin(projects, eq(timeEntries.projectId, projects.id))
-      .where(eq(timeEntries.id, id));
+      .where(and(...whereConditions))
+      .orderBy(desc(timeEntries.date), desc(timeEntries.startTime));
+  }
 
-    if (!result) return undefined;
+  async getTimeEntry(id: string): Promise<TimeEntry | undefined> {
+    const result = await db
+      .select()
+      .from(timeEntries)
+      .where(eq(timeEntries.id, id))
+      .limit(1);
 
-    return {
-      ...result.timeEntry,
-      user: result.user || undefined,
-      project: result.project || undefined,
-    };
+    return result[0];
+  }
+
+  async getAllTimeEntries(startDate?: Date, endDate?: Date): Promise<TimeEntryWithRelations[]> {
+    let whereConditions = [];
+
+    if (startDate && endDate) {
+      whereConditions.push(
+        gte(timeEntries.date, startDate),
+        lte(timeEntries.date, endDate)
+      );
+    }
+
+    return await db
+      .select({
+        id: timeEntries.id,
+        userId: timeEntries.userId,
+        projectId: timeEntries.projectId,
+        date: timeEntries.date,
+        startTime: timeEntries.startTime,
+        endTime: timeEntries.endTime,
+        breakMinutes: timeEntries.breakMinutes,
+        description: timeEntries.description,
+        status: timeEntries.status,
+        isRunning: timeEntries.isRunning,
+        createdAt: timeEntries.createdAt,
+        updatedAt: timeEntries.updatedAt,
+        user: {
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          role: users.role
+        },
+        project: {
+          id: projects.id,
+          name: projects.name,
+          description: projects.description,
+          color: projects.color
+        }
+      })
+      .from(timeEntries)
+      .leftJoin(users, eq(timeEntries.userId, users.id))
+      .leftJoin(projects, eq(timeEntries.projectId, projects.id))
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .orderBy(desc(timeEntries.date), desc(timeEntries.startTime));
   }
 
   async createTimeEntry(insertEntry: InsertTimeEntry): Promise<TimeEntry> {

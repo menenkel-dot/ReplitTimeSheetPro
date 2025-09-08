@@ -53,7 +53,7 @@ export default function Reports() {
         includeCosts: filters.includeCosts.toString()
       });
 
-      if (filters.userId) {
+      if (filters.userId && filters.userId !== 'all') {
         params.append('userId', filters.userId);
       }
 
@@ -192,7 +192,7 @@ export default function Reports() {
                         <SelectValue placeholder="Alle Mitarbeiter" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Alle Mitarbeiter</SelectItem>
+                        <SelectItem value="all">Alle Mitarbeiter</SelectItem>
                         {users.map((user) => (
                           <SelectItem key={user.id} value={user.id}>
                             {user.firstName} {user.lastName}

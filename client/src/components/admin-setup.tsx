@@ -13,14 +13,13 @@ export default function AdminSetup() {
   const [setupComplete, setSetupComplete] = useState(false);
 
   // Check if any admin exists in the system
-  const { data: users = [] } = useQuery({
-    queryKey: ["/api/users"],
-    enabled: !!user,
+  const { data: adminCheckResult } = useQuery({
+    queryKey: ["/api/admin-exists"],
     retry: false,
     refetchOnWindowFocus: false
   });
 
-  const hasExistingAdmin = users.some((u: any) => u.role === 'admin');
+  const hasExistingAdmin = adminCheckResult?.adminExists || false;
 
   const promoteToAdminMutation = useMutation({
     mutationFn: async () => {

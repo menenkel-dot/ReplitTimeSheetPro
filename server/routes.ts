@@ -263,6 +263,17 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Check if admin exists (no auth required)
+  app.get("/api/admin-exists", async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const adminExists = users.some(user => user.role === 'admin');
+      res.json({ adminExists });
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Prüfen der Admin-Existenz" });
+    }
+  });
+
   // Users API (Admin only)
   app.get("/api/users", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

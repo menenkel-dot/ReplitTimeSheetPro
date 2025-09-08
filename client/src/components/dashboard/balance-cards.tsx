@@ -9,7 +9,14 @@ export default function BalanceCards() {
   const { user } = useAuth();
   
   const { data: timeEntries = [] } = useQuery<TimeEntryWithRelations[]>({
-    queryKey: ["/api/time-entries"],
+    queryKey: ["/api/time-entries", ""], // Use same pattern as TimeEntriesTable but with empty params for dashboard
+    queryFn: async () => {
+      const response = await fetch('/api/time-entries', {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch time entries');
+      return response.json();
+    }
   });
 
   const today = new Date();

@@ -7,6 +7,7 @@ import { Edit, Trash2, Play, ArrowUpDown } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { formatDate, formatTime } from "@/lib/date-utils";
 import type { TimeEntryWithRelations, Project } from "@shared/schema";
 
@@ -15,22 +16,38 @@ interface TimeEntriesTableProps {
   showFilters?: boolean;
   showPagination?: boolean;
   limit?: number;
+  showAllForAdmin?: boolean; // New prop to control if admins see all entries
 }
 
 export default function TimeEntriesTable({ 
   title, 
   showFilters = false, 
   showPagination = false,
-  limit 
+  limit,
+  showAllForAdmin = false
 }: TimeEntriesTableProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [filters, setFilters] = useState({
     project: "all",
     period: "week"
   });
 
+  // Build query parameters based on user role and showAllForAdmin prop
+  const queryParams = new URLSearchParams();
+  if (user?.role === 'admin' && showAllForAdmin) {
+    queryParams.set('showAll', 'true');
+  }
+
   const { data: timeEntries = [] } = useQuery<TimeEntryWithRelations[]>({
-    queryKey: ["/api/time-entries"],
+    queryKey: ["/api/time-entries", queryParams.toString()],
+    queryFn: async () => {
+      const response = await fetch(`/api/time-entries?${queryParams}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch time entries');
+      return response.json();
+    }
   });
 
   const { data: projects = [] } = useQuery<Project[]>({

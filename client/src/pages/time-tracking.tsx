@@ -37,6 +37,7 @@ export default function TimeTracking() {
             title="Zeiteinträge"
             showFilters={true}
             showPagination={true}
+            showAllForAdmin={true}
           />
         </div>
       </div>

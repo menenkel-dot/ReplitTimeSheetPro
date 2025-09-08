@@ -370,6 +370,182 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Reports API
+  app.get("/api/reports/export", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const { startDate, endDate, groupBy, format } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start- und Enddatum sind erforderlich" });
+      }
+
+      const userId = req.user.role === 'admin' && req.query.userId 
+        ? req.query.userId as string 
+        : req.user.id;
+
+      const entries = await storage.getTimeEntriesByUser(
+        userId,
+        new Date(startDate as string),
+        new Date(endDate as string)
+      );
+
+      // Group and process data based on groupBy parameter
+      let processedData;
+      switch (groupBy) {
+        case 'project':
+          processedData = groupByProject(entries);
+          break;
+        case 'week':
+          processedData = groupByWeek(entries);
+          break;
+        case 'month':
+          processedData = groupByMonth(entries);
+          break;
+        default:
+          processedData = groupByDay(entries);
+      }
+
+      // Generate export based on format
+      switch (format) {
+        case 'csv':
+          const csv = generateCSV(processedData);
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
+          res.send(csv);
+          break;
+        case 'xlsx':
+          // For now, return CSV for xlsx requests too
+          const xlsxCsv = generateCSV(processedData);
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
+          res.send(xlsxCsv);
+          break;
+        case 'pdf':
+          // For now, return CSV for pdf requests too
+          const pdfCsv = generateCSV(processedData);
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
+          res.send(pdfCsv);
+          break;
+        default:
+          const defaultCsv = generateCSV(processedData);
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
+          res.send(defaultCsv);
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Generieren des Reports" });
+    }
+  });
+
+  // Helper functions for grouping data
+  function groupByDay(entries: any[]) {
+    const grouped = entries.reduce((acc, entry) => {
+      const date = new Date(entry.date).toISOString().split('T')[0];
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(entry);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([date, entries]: [string, any[]]) => ({
+      date,
+      entries,
+      totalHours: entries.reduce((sum, entry) => {
+        if (entry.startTime && entry.endTime) {
+          const start = new Date(entry.startTime);
+          const end = new Date(entry.endTime);
+          return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        }
+        return sum;
+      }, 0)
+    }));
+  }
+
+  function groupByProject(entries: any[]) {
+    const grouped = entries.reduce((acc, entry) => {
+      const projectName = entry.project?.name || 'Ohne Projekt';
+      if (!acc[projectName]) acc[projectName] = [];
+      acc[projectName].push(entry);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([project, entries]: [string, any[]]) => ({
+      project,
+      entries,
+      totalHours: entries.reduce((sum, entry) => {
+        if (entry.startTime && entry.endTime) {
+          const start = new Date(entry.startTime);
+          const end = new Date(entry.endTime);
+          return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        }
+        return sum;
+      }, 0)
+    }));
+  }
+
+  function groupByWeek(entries: any[]) {
+    const grouped = entries.reduce((acc, entry) => {
+      const date = new Date(entry.date);
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      const weekKey = weekStart.toISOString().split('T')[0];
+      if (!acc[weekKey]) acc[weekKey] = [];
+      acc[weekKey].push(entry);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([week, entries]: [string, any[]]) => ({
+      week,
+      entries,
+      totalHours: entries.reduce((sum, entry) => {
+        if (entry.startTime && entry.endTime) {
+          const start = new Date(entry.startTime);
+          const end = new Date(entry.endTime);
+          return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        }
+        return sum;
+      }, 0)
+    }));
+  }
+
+  function groupByMonth(entries: any[]) {
+    const grouped = entries.reduce((acc, entry) => {
+      const date = new Date(entry.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!acc[monthKey]) acc[monthKey] = [];
+      acc[monthKey].push(entry);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([month, entries]: [string, any[]]) => ({
+      month,
+      entries,
+      totalHours: entries.reduce((sum, entry) => {
+        if (entry.startTime && entry.endTime) {
+          const start = new Date(entry.startTime);
+          const end = new Date(entry.endTime);
+          return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        }
+        return sum;
+      }, 0)
+    }));
+  }
+
+  function generateCSV(data: any[]) {
+    if (data.length === 0) return 'Keine Daten verfügbar';
+
+    const headers = ['Zeitraum', 'Gesamtstunden', 'Anzahl Einträge'];
+    const rows = data.map(item => [
+      item.date || item.project || item.week || item.month,
+      item.totalHours.toFixed(2),
+      item.entries.length
+    ]);
+
+    return [headers, ...rows].map(row => row.join(',')).join('\n');
+  }
+
   // Seed data endpoint
   app.post("/api/seed", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

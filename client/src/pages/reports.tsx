@@ -6,6 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Download, Calendar } from "lucide-react";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { de } from "date-fns/locale";
 
 export default function Reports() {
   const [reportFilters, setReportFilters] = useState({
@@ -14,6 +17,95 @@ export default function Reports() {
     groupBy: "day",
     format: "csv"
   });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { toast } = useToast();
+
+  const generateReport = async (filters = reportFilters) => {
+    if (!filters.startDate || !filters.endDate) {
+      toast({
+        title: "Fehler",
+        description: "Bitte wählen Sie ein Start- und Enddatum aus.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const params = new URLSearchParams({
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        groupBy: filters.groupBy,
+        format: filters.format
+      });
+
+      const response = await fetch(`/api/reports/export?${params}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Fehler beim Generieren des Reports');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `report-${filters.startDate}-${filters.endDate}.${filters.format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Erfolg",
+        description: "Report wurde erfolgreich generiert und heruntergeladen.",
+      });
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Generieren des Reports. Bitte versuchen Sie es erneut.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateQuickReport = (period: 'today' | 'week' | 'month' | 'year') => {
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date;
+
+    switch (period) {
+      case 'today':
+        startDate = now;
+        endDate = now;
+        break;
+      case 'week':
+        startDate = startOfWeek(now, { locale: de });
+        endDate = endOfWeek(now, { locale: de });
+        break;
+      case 'month':
+        startDate = startOfMonth(now);
+        endDate = endOfMonth(now);
+        break;
+      case 'year':
+        startDate = startOfYear(now);
+        endDate = endOfYear(now);
+        break;
+    }
+
+    const quickFilters = {
+      ...reportFilters,
+      startDate: format(startDate, 'yyyy-MM-dd'),
+      endDate: format(endDate, 'yyyy-MM-dd')
+    };
+
+    generateReport(quickFilters);
+  };
 
   return (
     <MainLayout>
@@ -109,9 +201,14 @@ export default function Reports() {
                   </Select>
                 </div>
 
-                <Button className="w-full" data-testid="button-generate-report">
+                <Button 
+                  className="w-full" 
+                  data-testid="button-generate-report"
+                  onClick={() => generateReport()}
+                  disabled={isGenerating}
+                >
                   <Download className="w-4 h-4 mr-2" />
-                  Report generieren
+                  {isGenerating ? "Generiere..." : "Report generieren"}
                 </Button>
               </CardContent>
             </Card>
@@ -128,6 +225,8 @@ export default function Reports() {
                   variant="outline" 
                   className="w-full justify-start"
                   data-testid="button-report-today"
+                  onClick={() => generateQuickReport('today')}
+                  disabled={isGenerating}
                 >
                   Heute
                 </Button>
@@ -135,6 +234,8 @@ export default function Reports() {
                   variant="outline" 
                   className="w-full justify-start"
                   data-testid="button-report-week"
+                  onClick={() => generateQuickReport('week')}
+                  disabled={isGenerating}
                 >
                   Diese Woche
                 </Button>
@@ -142,6 +243,8 @@ export default function Reports() {
                   variant="outline" 
                   className="w-full justify-start"
                   data-testid="button-report-month"
+                  onClick={() => generateQuickReport('month')}
+                  disabled={isGenerating}
                 >
                   Dieser Monat
                 </Button>
@@ -149,6 +252,8 @@ export default function Reports() {
                   variant="outline" 
                   className="w-full justify-start"
                   data-testid="button-report-year"
+                  onClick={() => generateQuickReport('year')}
+                  disabled={isGenerating}
                 >
                   Dieses Jahr
                 </Button>

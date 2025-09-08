@@ -1,7 +1,13 @@
+import { useState } from "react";
 import MainLayout from "@/components/layout/main-layout";
 import TimeEntriesTable from "@/components/time-entries/time-entries-table";
+import NewEntryModal from "@/components/time-entries/new-entry-modal";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 export default function TimeTracking() {
+  const [isNewEntryModalOpen, setIsNewEntryModalOpen] = useState(false);
+  
   return (
     <MainLayout>
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -12,6 +18,16 @@ export default function TimeTracking() {
               <p className="text-muted-foreground">
                 Verwalten Sie Ihre Arbeitszeiten
               </p>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <Button 
+                onClick={() => setIsNewEntryModalOpen(true)}
+                data-testid="button-new-entry"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Neuer Eintrag
+              </Button>
             </div>
           </div>
         </header>
@@ -24,6 +40,11 @@ export default function TimeTracking() {
           />
         </div>
       </div>
+      
+      <NewEntryModal 
+        isOpen={isNewEntryModalOpen}
+        onClose={() => setIsNewEntryModalOpen(false)}
+      />
     </MainLayout>
   );
 }

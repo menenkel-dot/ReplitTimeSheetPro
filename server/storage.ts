@@ -142,7 +142,8 @@ export class DatabaseStorage implements IStorage {
           email: users.email,
           firstName: users.firstName,
           lastName: users.lastName,
-          role: users.role
+          role: users.role,
+          hourlyRate: users.hourlyRate
         },
         project: {
           id: projects.id,
@@ -198,7 +199,8 @@ export class DatabaseStorage implements IStorage {
           email: users.email,
           firstName: users.firstName,
           lastName: users.lastName,
-          role: users.role
+          role: users.role,
+          hourlyRate: users.hourlyRate
         },
         project: {
           id: projects.id,

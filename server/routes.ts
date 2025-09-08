@@ -401,7 +401,7 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      const { startDate, endDate, groupBy, format } = req.query;
+      const { startDate, endDate, groupBy, format, includeCosts } = req.query;
       
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "Start- und Enddatum sind erforderlich" });
@@ -432,44 +432,49 @@ export function registerRoutes(app: Express): Server {
 
       // Group and process data based on groupBy parameter
       let processedData;
+      const showCosts = req.user.role === 'admin' && includeCosts === 'true';
+      
       switch (groupBy) {
         case 'project':
-          processedData = groupByProject(entries);
+          processedData = groupByProject(entries, showCosts);
           break;
         case 'week':
-          processedData = groupByWeek(entries);
+          processedData = groupByWeek(entries, showCosts);
           break;
         case 'month':
-          processedData = groupByMonth(entries);
+          processedData = groupByMonth(entries, showCosts);
+          break;
+        case 'user':
+          processedData = req.user.role === 'admin' ? groupByUser(entries, showCosts) : groupByDay(entries, showCosts);
           break;
         default:
-          processedData = groupByDay(entries);
+          processedData = groupByDay(entries, showCosts);
       }
 
       // Generate export based on format
       switch (format) {
         case 'csv':
-          const csv = generateCSV(processedData);
+          const csv = generateCSV(processedData, showCosts);
           res.setHeader('Content-Type', 'text/csv');
           res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
           res.send(csv);
           break;
         case 'xlsx':
           // For now, return CSV for xlsx requests too
-          const xlsxCsv = generateCSV(processedData);
+          const xlsxCsv = generateCSV(processedData, showCosts);
           res.setHeader('Content-Type', 'text/csv');
           res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
           res.send(xlsxCsv);
           break;
         case 'pdf':
           // For now, return CSV for pdf requests too
-          const pdfCsv = generateCSV(processedData);
+          const pdfCsv = generateCSV(processedData, showCosts);
           res.setHeader('Content-Type', 'text/csv');
           res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
           res.send(pdfCsv);
           break;
         default:
-          const defaultCsv = generateCSV(processedData);
+          const defaultCsv = generateCSV(processedData, showCosts);
           res.setHeader('Content-Type', 'text/csv');
           res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
           res.send(defaultCsv);
@@ -480,7 +485,27 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Helper functions for grouping data
-  function groupByDay(entries: any[]) {
+  function calculateHoursAndCosts(entries: any[], includeCosts: boolean = false) {
+    return entries.reduce((sum, entry) => {
+      if (entry.startTime && entry.endTime) {
+        const start = new Date(entry.startTime);
+        const end = new Date(entry.endTime);
+        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        const breakHours = (entry.breakMinutes || 0) / 60;
+        const actualHours = Math.max(0, hours - breakHours);
+        
+        sum.totalHours += actualHours;
+        
+        if (includeCosts && entry.user?.hourlyRate) {
+          const rate = parseFloat(entry.user.hourlyRate || '0');
+          sum.totalCosts += actualHours * rate;
+        }
+      }
+      return sum;
+    }, { totalHours: 0, totalCosts: 0 });
+  }
+
+  function groupByDay(entries: any[], includeCosts: boolean = false) {
     const grouped = entries.reduce((acc, entry) => {
       const date = new Date(entry.date).toISOString().split('T')[0];
       if (!acc[date]) acc[date] = [];
@@ -488,21 +513,17 @@ export function registerRoutes(app: Express): Server {
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([date, entries]: [string, any[]]) => ({
-      date,
-      entries,
-      totalHours: entries.reduce((sum, entry) => {
-        if (entry.startTime && entry.endTime) {
-          const start = new Date(entry.startTime);
-          const end = new Date(entry.endTime);
-          return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-        }
-        return sum;
-      }, 0)
-    }));
+    return Object.entries(grouped).map(([date, entries]: [string, any[]]) => {
+      const stats = calculateHoursAndCosts(entries, includeCosts);
+      return {
+        date,
+        entries,
+        ...stats
+      };
+    });
   }
 
-  function groupByProject(entries: any[]) {
+  function groupByProject(entries: any[], includeCosts: boolean = false) {
     const grouped = entries.reduce((acc, entry) => {
       const projectName = entry.project?.name || 'Ohne Projekt';
       if (!acc[projectName]) acc[projectName] = [];
@@ -510,21 +531,35 @@ export function registerRoutes(app: Express): Server {
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([project, entries]: [string, any[]]) => ({
-      project,
-      entries,
-      totalHours: entries.reduce((sum, entry) => {
-        if (entry.startTime && entry.endTime) {
-          const start = new Date(entry.startTime);
-          const end = new Date(entry.endTime);
-          return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-        }
-        return sum;
-      }, 0)
-    }));
+    return Object.entries(grouped).map(([project, entries]: [string, any[]]) => {
+      const stats = calculateHoursAndCosts(entries, includeCosts);
+      return {
+        project,
+        entries,
+        ...stats
+      };
+    });
   }
 
-  function groupByWeek(entries: any[]) {
+  function groupByUser(entries: any[], includeCosts: boolean = false) {
+    const grouped = entries.reduce((acc, entry) => {
+      const userName = `${entry.user?.firstName || ''} ${entry.user?.lastName || ''}`.trim() || 'Unbekannt';
+      if (!acc[userName]) acc[userName] = [];
+      acc[userName].push(entry);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([user, entries]: [string, any[]]) => {
+      const stats = calculateHoursAndCosts(entries, includeCosts);
+      return {
+        user,
+        entries,
+        ...stats
+      };
+    });
+  }
+
+  function groupByWeek(entries: any[], includeCosts: boolean = false) {
     const grouped = entries.reduce((acc, entry) => {
       const date = new Date(entry.date);
       const weekStart = new Date(date);
@@ -535,21 +570,17 @@ export function registerRoutes(app: Express): Server {
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([week, entries]: [string, any[]]) => ({
-      week,
-      entries,
-      totalHours: entries.reduce((sum, entry) => {
-        if (entry.startTime && entry.endTime) {
-          const start = new Date(entry.startTime);
-          const end = new Date(entry.endTime);
-          return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-        }
-        return sum;
-      }, 0)
-    }));
+    return Object.entries(grouped).map(([week, entries]: [string, any[]]) => {
+      const stats = calculateHoursAndCosts(entries, includeCosts);
+      return {
+        week,
+        entries,
+        ...stats
+      };
+    });
   }
 
-  function groupByMonth(entries: any[]) {
+  function groupByMonth(entries: any[], includeCosts: boolean = false) {
     const grouped = entries.reduce((acc, entry) => {
       const date = new Date(entry.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -558,32 +589,105 @@ export function registerRoutes(app: Express): Server {
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([month, entries]: [string, any[]]) => ({
-      month,
-      entries,
-      totalHours: entries.reduce((sum, entry) => {
-        if (entry.startTime && entry.endTime) {
-          const start = new Date(entry.startTime);
-          const end = new Date(entry.endTime);
-          return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-        }
-        return sum;
-      }, 0)
-    }));
+    return Object.entries(grouped).map(([month, entries]: [string, any[]]) => {
+      const stats = calculateHoursAndCosts(entries, includeCosts);
+      return {
+        month,
+        entries,
+        ...stats
+      };
+    });
   }
 
-  function generateCSV(data: any[]) {
+  function generateCSV(data: any[], includeCosts: boolean = false) {
     if (data.length === 0) return 'Keine Daten verfügbar';
 
     const headers = ['Zeitraum', 'Gesamtstunden', 'Anzahl Einträge'];
-    const rows = data.map(item => [
-      item.date || item.project || item.week || item.month,
-      item.totalHours.toFixed(2),
-      item.entries.length
-    ]);
+    if (includeCosts) {
+      headers.push('Personalkosten (€)');
+    }
+
+    const rows = data.map(item => {
+      const row = [
+        item.date || item.project || item.week || item.month || item.user,
+        item.totalHours.toFixed(2),
+        item.entries.length
+      ];
+      
+      if (includeCosts) {
+        row.push(item.totalCosts?.toFixed(2) || '0.00');
+      }
+      
+      return row;
+    });
 
     return [headers, ...rows].map(row => row.join(',')).join('\n');
   }
+
+  // Reports data API for frontend display
+  app.get("/api/reports/data", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const { startDate, endDate, groupBy, userId } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start- und Enddatum sind erforderlich" });
+      }
+
+      let entries;
+      if (req.user.role === 'admin' && userId) {
+        // Admin requesting specific user's entries
+        entries = await storage.getTimeEntriesByUser(
+          userId as string,
+          new Date(startDate as string),
+          new Date(endDate as string)
+        );
+      } else if (req.user.role === 'admin' && !userId) {
+        // Admin requesting all entries
+        entries = await storage.getAllTimeEntries(
+          new Date(startDate as string),
+          new Date(endDate as string)
+        );
+      } else {
+        // Regular user requesting their own entries
+        entries = await storage.getTimeEntriesByUser(
+          req.user.id,
+          new Date(startDate as string),
+          new Date(endDate as string)
+        );
+      }
+
+      // Group and process data based on groupBy parameter
+      let processedData;
+      const showCosts = req.user.role === 'admin';
+      
+      switch (groupBy) {
+        case 'project':
+          processedData = groupByProject(entries, showCosts);
+          break;
+        case 'week':
+          processedData = groupByWeek(entries, showCosts);
+          break;
+        case 'month':
+          processedData = groupByMonth(entries, showCosts);
+          break;
+        case 'user':
+          processedData = req.user.role === 'admin' ? groupByUser(entries, showCosts) : groupByDay(entries, showCosts);
+          break;
+        default:
+          processedData = groupByDay(entries, showCosts);
+      }
+
+      res.json({
+        data: processedData,
+        isAdmin: req.user.role === 'admin',
+        totalEntries: entries.length
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Laden der Berichte-Daten" });
+    }
+  });
 
   // Seed data endpoint
   app.post("/api/seed", async (req, res) => {

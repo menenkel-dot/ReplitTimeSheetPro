@@ -4,21 +4,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Download, Calendar } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FileText, Download, Calendar, Users } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { de } from "date-fns/locale";
+import type { User } from "@shared/schema";
 
 export default function Reports() {
+  const { user } = useAuth();
   const [reportFilters, setReportFilters] = useState({
     startDate: "",
     endDate: "",
     groupBy: "day",
-    format: "csv"
+    format: "csv",
+    userId: "",
+    includeCosts: false
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+
+  // Fetch users for admin dropdown
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: user?.role === 'admin',
+  });
 
   const generateReport = async (filters = reportFilters) => {
     if (!filters.startDate || !filters.endDate) {
@@ -36,8 +49,13 @@ export default function Reports() {
         startDate: filters.startDate,
         endDate: filters.endDate,
         groupBy: filters.groupBy,
-        format: filters.format
+        format: filters.format,
+        includeCosts: filters.includeCosts.toString()
       });
+
+      if (filters.userId) {
+        params.append('userId', filters.userId);
+      }
 
       const response = await fetch(`/api/reports/export?${params}`, {
         method: 'GET',
@@ -160,6 +178,31 @@ export default function Reports() {
                   </div>
                 </div>
 
+                {user?.role === 'admin' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="userId">Mitarbeiter (optional)</Label>
+                    <Select
+                      value={reportFilters.userId}
+                      onValueChange={(value) => setReportFilters({
+                        ...reportFilters,
+                        userId: value
+                      })}
+                    >
+                      <SelectTrigger data-testid="select-user">
+                        <SelectValue placeholder="Alle Mitarbeiter" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Alle Mitarbeiter</SelectItem>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.firstName} {user.lastName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="groupBy">Gruppierung</Label>
                   <Select
@@ -177,6 +220,9 @@ export default function Reports() {
                       <SelectItem value="project">Nach Projekt</SelectItem>
                       <SelectItem value="week">Nach Woche</SelectItem>
                       <SelectItem value="month">Nach Monat</SelectItem>
+                      {user?.role === 'admin' && (
+                        <SelectItem value="user">Nach Mitarbeiter</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -200,6 +246,23 @@ export default function Reports() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {user?.role === 'admin' && (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="includeCosts"
+                      checked={reportFilters.includeCosts}
+                      onCheckedChange={(checked) => setReportFilters({
+                        ...reportFilters,
+                        includeCosts: checked as boolean
+                      })}
+                      data-testid="checkbox-include-costs"
+                    />
+                    <Label htmlFor="includeCosts" className="text-sm">
+                      Personalkosten einbeziehen
+                    </Label>
+                  </div>
+                )}
 
                 <Button 
                   className="w-full" 

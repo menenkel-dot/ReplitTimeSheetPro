@@ -47,6 +47,7 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries", ""] }); // Also invalidate dashboard cache
       toast({
         title: "Zeiteintrag erstellt",
         description: "Der Zeiteintrag wurde erfolgreich gespeichert."

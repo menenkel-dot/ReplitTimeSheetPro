@@ -54,6 +54,7 @@ export default function TimerWidget() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries", ""] }); // Also invalidate dashboard cache
       toast({
         title: "Timer gestartet",
         description: "Die Zeiterfassung wurde gestartet."
@@ -79,6 +80,7 @@ export default function TimerWidget() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries", ""] }); // Also invalidate dashboard cache
       toast({
         title: "Timer gestoppt",
         description: "Die Zeiterfassung wurde beendet."

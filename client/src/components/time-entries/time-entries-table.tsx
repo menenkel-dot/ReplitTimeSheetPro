@@ -64,6 +64,7 @@ export default function TimeEntriesTable({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries", ""] }); // Also invalidate dashboard cache
       toast({
         title: "Eintrag gelöscht",
         description: "Der Zeiteintrag wurde erfolgreich gelöscht."

@@ -79,7 +79,7 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, showAll } = req.query;
       
       let entries;
       if (req.user.role === 'admin' && req.query.userId) {
@@ -89,14 +89,14 @@ export function registerRoutes(app: Express): Server {
           startDate ? new Date(startDate as string) : undefined,
           endDate ? new Date(endDate as string) : undefined
         );
-      } else if (req.user.role === 'admin' && !req.query.userId) {
-        // Admin requesting all entries
+      } else if (req.user.role === 'admin' && showAll === 'true') {
+        // Admin requesting all entries (only in time tracking view)
         entries = await storage.getAllTimeEntries(
           startDate ? new Date(startDate as string) : undefined,
           endDate ? new Date(endDate as string) : undefined
         );
       } else {
-        // Regular user requesting their own entries
+        // Regular user or admin on dashboard requesting their own entries
         entries = await storage.getTimeEntriesByUser(
           req.user.id,
           startDate ? new Date(startDate as string) : undefined,

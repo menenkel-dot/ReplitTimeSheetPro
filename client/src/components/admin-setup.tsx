@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Database, CheckCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -11,6 +11,16 @@ export default function AdminSetup() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [setupComplete, setSetupComplete] = useState(false);
+
+  // Check if any admin exists in the system
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    enabled: !!user,
+    retry: false,
+    refetchOnWindowFocus: false
+  });
+
+  const hasExistingAdmin = users.some((u: any) => u.role === 'admin');
 
   const promoteToAdminMutation = useMutation({
     mutationFn: async () => {
@@ -92,8 +102,8 @@ export default function AdminSetup() {
     await seedDataMutation.mutateAsync();
   };
 
-  // Don't show if already admin and setup is complete
-  if (user?.role === 'admin' && setupComplete) {
+  // Don't show if there's already an admin in the system
+  if (hasExistingAdmin || (user?.role === 'admin' && setupComplete)) {
     return null;
   }
 

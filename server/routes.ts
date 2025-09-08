@@ -312,12 +312,24 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Promote user to admin (temporary endpoint for setup)
+  // Promote user to admin (only for initial setup when no admin exists)
   app.post("/api/users/:id/promote", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
-      // Allow any authenticated user to promote themselves for initial setup
+      // Check if any admin already exists
+      const users = await storage.getAllUsers();
+      const hasAdmin = users.some(user => user.role === 'admin');
+      
+      if (hasAdmin) {
+        return res.status(403).json({ message: "Ein Administrator existiert bereits im System" });
+      }
+      
+      // Only allow users to promote themselves for initial setup
+      if (req.params.id !== req.user.id) {
+        return res.status(403).json({ message: "Sie können nur sich selbst befördern" });
+      }
+      
       const user = await storage.updateUser(req.params.id, { role: 'admin' });
       res.json(user);
     } catch (error) {

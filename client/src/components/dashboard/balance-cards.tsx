@@ -13,25 +13,40 @@ export default function BalanceCards() {
   });
 
   const today = new Date();
+  
+  // Calculate start of week (Monday) more reliably
   const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay() + 1);
+  const dayOfWeek = today.getDay();
+  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 0, so we need to go back 6 days
+  startOfWeek.setDate(today.getDate() - daysToMonday);
+  startOfWeek.setHours(0, 0, 0, 0);
   
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  startOfMonth.setHours(0, 0, 0, 0);
 
   // Calculate hours for different periods
   const todayEntries = timeEntries.filter(entry => {
     const entryDate = new Date(entry.date);
-    return entryDate.toDateString() === today.toDateString();
+    entryDate.setHours(0, 0, 0, 0);
+    const todayNormalized = new Date(today);
+    todayNormalized.setHours(0, 0, 0, 0);
+    return entryDate.getTime() === todayNormalized.getTime();
   });
 
   const weekEntries = timeEntries.filter(entry => {
     const entryDate = new Date(entry.date);
-    return entryDate >= startOfWeek && entryDate <= today;
+    entryDate.setHours(0, 0, 0, 0);
+    const todayNormalized = new Date(today);
+    todayNormalized.setHours(23, 59, 59, 999);
+    return entryDate >= startOfWeek && entryDate <= todayNormalized;
   });
 
   const monthEntries = timeEntries.filter(entry => {
     const entryDate = new Date(entry.date);
-    return entryDate >= startOfMonth && entryDate <= today;
+    entryDate.setHours(0, 0, 0, 0);
+    const todayNormalized = new Date(today);
+    todayNormalized.setHours(23, 59, 59, 999);
+    return entryDate >= startOfMonth && entryDate <= todayNormalized;
   });
 
   const todayHours = calculateWorkingHours(todayEntries);
@@ -46,8 +61,12 @@ export default function BalanceCards() {
   const weekBalance = weekHours - targetWeekHours;
   const monthBalance = monthHours - targetMonthHours;
   
-  // Mock total balance - in production this would be calculated from historical data
-  const totalBalance = 12.75;
+  // Calculate total balance from all time entries
+  const allTimeHours = calculateWorkingHours(timeEntries);
+  const totalWorkingDays = timeEntries.length > 0 ? 
+    Math.ceil((Date.now() - Math.min(...timeEntries.map(e => new Date(e.date).getTime()))) / (1000 * 60 * 60 * 24)) : 0;
+  const expectedTotalHours = Math.max(1, Math.floor(totalWorkingDays / 7) * 5) * targetHoursPerDay; // Rough estimate of working days
+  const totalBalance = allTimeHours - expectedTotalHours;
 
   const formatHours = (hours: number) => {
     const h = Math.floor(Math.abs(hours));
@@ -147,15 +166,15 @@ export default function BalanceCards() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold mb-1" data-testid="text-total-balance">
-            +{formatHours(totalBalance)}
+          <div className={`text-2xl font-bold mb-1 ${getBalanceColor(totalBalance)}`} data-testid="text-total-balance">
+            {totalBalance >= 0 ? "+" : ""}{formatHours(totalBalance)}
           </div>
-          <div className="text-sm text-green-600 mb-2">
-            Guthaben
+          <div className={`text-sm mb-2 ${totalBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
+            {totalBalance >= 0 ? "Guthaben" : "Schulden"}
           </div>
           <div className="flex items-center mt-2 gap-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              Positiv
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${totalBalance >= 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+              {totalBalance >= 0 ? "Positiv" : "Negativ"}
             </span>
           </div>
         </CardContent>

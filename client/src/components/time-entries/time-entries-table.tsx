@@ -79,26 +79,6 @@ export default function TimeEntriesTable({
     return `${h}:${m.toString().padStart(2, '0')}h`;
   };
 
-  const getStatusBadge = (status: string, isRunning: boolean) => {
-    if (isRunning) {
-      return (
-        <Badge className="bg-orange-100 text-orange-800">
-          Läuft
-        </Badge>
-      );
-    }
-
-    switch (status) {
-      case 'approved':
-        return <Badge className="bg-green-100 text-green-800">Genehmigt</Badge>;
-      case 'rejected':
-        return <Badge className="bg-red-100 text-red-800">Abgelehnt</Badge>;
-      case 'submitted':
-        return <Badge className="bg-blue-100 text-blue-800">Eingereicht</Badge>;
-      default:
-        return <Badge className="bg-yellow-100 text-yellow-800">Entwurf</Badge>;
-    }
-  };
 
   const displayEntries = limit ? timeEntries.slice(0, limit) : timeEntries;
 
@@ -154,7 +134,6 @@ export default function TimeEntriesTable({
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground text-sm">Ende</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground text-sm">Pause</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground text-sm">Dauer</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground text-sm">Status</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground text-sm">Aktionen</th>
               </tr>
             </thead>
@@ -206,9 +185,6 @@ export default function TimeEntriesTable({
                     ) : (
                       "-"
                     )}
-                  </td>
-                  <td className="py-3 px-4">
-                    {getStatusBadge(entry.status, entry.isRunning || false)}
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">

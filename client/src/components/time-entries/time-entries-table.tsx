@@ -147,6 +147,9 @@ export default function TimeEntriesTable({
                     Datum <ArrowUpDown className="w-3 h-3 ml-1" />
                   </Button>
                 </th>
+                {user?.role === 'admin' && showAllForAdmin && (
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground text-sm">Mitarbeiter</th>
+                )}
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground text-sm">Projekt</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground text-sm">Start</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground text-sm">Ende</th>
@@ -165,6 +168,18 @@ export default function TimeEntriesTable({
                   <td className="py-3 px-4">
                     {formatDate(entry.date)}
                   </td>
+                  {user?.role === 'admin' && showAllForAdmin && (
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm font-medium">
+                          {entry.user?.firstName?.[0]}{entry.user?.lastName?.[0]}
+                        </div>
+                        <span className="font-medium">
+                          {entry.user ? `${entry.user.firstName} ${entry.user.lastName}`.trim() : 'Unbekannt'}
+                        </span>
+                      </div>
+                    </td>
+                  )}
                   <td className="py-3 px-4">
                     {entry.project ? (
                       <div className="flex items-center gap-2">

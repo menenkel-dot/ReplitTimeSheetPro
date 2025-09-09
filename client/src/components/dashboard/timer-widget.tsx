@@ -20,7 +20,7 @@ export default function TimerWidget() {
   const [displayTime, setDisplayTime] = useState("00:00:00");
 
   useEffect(() => {
-    if (runningEntry && runningEntry.startTime) {
+    if (runningEntry && runningEntry.startTime && runningEntry.isRunning) {
       const interval = setInterval(() => {
         const start = new Date(runningEntry.startTime!);
         const now = new Date();
@@ -96,15 +96,15 @@ export default function TimerWidget() {
   });
 
   const handleStartStop = () => {
-    if (runningEntry) {
+    if (runningEntry && runningEntry.isRunning) {
       stopTimerMutation.mutate();
-    } else {
+    } else if (!runningEntry) {
       startTimerMutation.mutate({});
     }
   };
 
   const resetTimer = () => {
-    if (runningEntry) {
+    if (runningEntry && runningEntry.isRunning) {
       stopTimerMutation.mutate();
     }
     setDisplayTime("00:00:00");
@@ -116,7 +116,7 @@ export default function TimerWidget() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">Aktuelle Session</span>
-            {runningEntry && (
+            {runningEntry && runningEntry.isRunning && (
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             )}
           </div>
@@ -130,7 +130,7 @@ export default function TimerWidget() {
               disabled={startTimerMutation.isPending || stopTimerMutation.isPending}
               data-testid="button-timer-toggle"
             >
-              {runningEntry ? (
+              {runningEntry && runningEntry.isRunning ? (
                 <>
                   <Pause className="w-3 h-3 mr-1" />
                   Stopp

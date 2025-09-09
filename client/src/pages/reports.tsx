@@ -22,7 +22,8 @@ export default function Reports() {
     groupBy: "day",
     format: "csv",
     userId: "",
-    includeCosts: false
+    includeCosts: false,
+    detailedReport: false
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
@@ -50,7 +51,8 @@ export default function Reports() {
         endDate: filters.endDate,
         groupBy: filters.groupBy,
         format: filters.format,
-        includeCosts: filters.includeCosts.toString()
+        includeCosts: filters.includeCosts.toString(),
+        detailedReport: filters.detailedReport.toString()
       });
 
       if (filters.userId && filters.userId !== 'all') {
@@ -248,20 +250,36 @@ export default function Reports() {
                 </div>
 
                 {user?.role === 'admin' && (
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="includeCosts"
-                      checked={reportFilters.includeCosts}
-                      onCheckedChange={(checked) => setReportFilters({
-                        ...reportFilters,
-                        includeCosts: checked as boolean
-                      })}
-                      data-testid="checkbox-include-costs"
-                    />
-                    <Label htmlFor="includeCosts" className="text-sm">
-                      Personalkosten einbeziehen
-                    </Label>
-                  </div>
+                  <>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="includeCosts"
+                        checked={reportFilters.includeCosts}
+                        onCheckedChange={(checked) => setReportFilters({
+                          ...reportFilters,
+                          includeCosts: checked as boolean
+                        })}
+                        data-testid="checkbox-include-costs"
+                      />
+                      <Label htmlFor="includeCosts" className="text-sm">
+                        Personalkosten einbeziehen
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="detailedReport"
+                        checked={reportFilters.detailedReport}
+                        onCheckedChange={(checked) => setReportFilters({
+                          ...reportFilters,
+                          detailedReport: checked as boolean
+                        })}
+                        data-testid="checkbox-detailed-report"
+                      />
+                      <Label htmlFor="detailedReport" className="text-sm">
+                        Detaillierter Report (einzelne Einträge mit Mitarbeiter und Projekt)
+                      </Label>
+                    </div>
+                  </>
                 )}
 
                 <Button 

@@ -463,29 +463,31 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Generate export based on format
+      const isAdmin = req.user.role === 'admin';
+      
       switch (format) {
         case 'csv':
-          const csv = generateCSV(processedData, showCosts);
+          const csv = generateCSV(processedData, showCosts, isAdmin);
           res.setHeader('Content-Type', 'text/csv');
           res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
           res.send(csv);
           break;
         case 'xlsx':
           // For now, return CSV for xlsx requests too
-          const xlsxCsv = generateCSV(processedData, showCosts);
+          const xlsxCsv = generateCSV(processedData, showCosts, isAdmin);
           res.setHeader('Content-Type', 'text/csv');
           res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
           res.send(xlsxCsv);
           break;
         case 'pdf':
           // For now, return CSV for pdf requests too
-          const pdfCsv = generateCSV(processedData, showCosts);
+          const pdfCsv = generateCSV(processedData, showCosts, isAdmin);
           res.setHeader('Content-Type', 'text/csv');
           res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
           res.send(pdfCsv);
           break;
         default:
-          const defaultCsv = generateCSV(processedData, showCosts);
+          const defaultCsv = generateCSV(processedData, showCosts, isAdmin);
           res.setHeader('Content-Type', 'text/csv');
           res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
           res.send(defaultCsv);
@@ -610,29 +612,89 @@ export function registerRoutes(app: Express): Server {
     });
   }
 
-  function generateCSV(data: any[], includeCosts: boolean = false) {
+  function generateCSV(data: any[], includeCosts: boolean = false, isAdmin: boolean = false) {
     if (data.length === 0) return 'Keine Daten verfügbar';
 
-    const headers = ['Zeitraum', 'Gesamtstunden', 'Anzahl Einträge'];
-    if (includeCosts) {
-      headers.push('Personalkosten (€)');
-    }
-
-    const rows = data.map(item => {
-      const row = [
-        item.date || item.project || item.week || item.month || item.user,
-        item.totalHours.toFixed(2),
-        item.entries.length
-      ];
-      
+    // Check if we have detailed entries (not grouped data)
+    const hasDetailedEntries = data.some(item => item.entries && item.entries.length > 0);
+    
+    if (isAdmin && hasDetailedEntries) {
+      // Generate detailed CSV with individual entries
+      const headers = ['Datum', 'Startzeit', 'Endzeit', 'Dauer (Std)', 'Pause (Min)', 'Beschreibung', 'Mitarbeiter', 'Projekt', 'Status'];
       if (includeCosts) {
-        row.push(item.totalCosts?.toFixed(2) || '0.00');
+        headers.push('Stundensatz (€)', 'Kosten (€)');
       }
-      
-      return row;
-    });
 
-    return [headers, ...rows].map(row => row.join(',')).join('\n');
+      const rows: string[][] = [];
+      
+      data.forEach(group => {
+        group.entries.forEach((entry: any) => {
+          const duration = entry.startTime && entry.endTime 
+            ? calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes || 0)
+            : 0;
+          
+          const userName = entry.user 
+            ? `${entry.user.firstName} ${entry.user.lastName}`.trim()
+            : 'Unbekannt';
+          
+          const projectName = entry.project?.name || 'Ohne Projekt';
+          
+          const row = [
+            new Date(entry.date).toLocaleDateString('de-DE'),
+            entry.startTime ? new Date(entry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '',
+            entry.endTime ? new Date(entry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '',
+            duration.toFixed(2),
+            (entry.breakMinutes || 0).toString(),
+            entry.description || '',
+            userName,
+            projectName,
+            entry.status || 'draft'
+          ];
+          
+          if (includeCosts) {
+            const hourlyRate = parseFloat(entry.user?.hourlyRate || '0');
+            const costs = duration * hourlyRate;
+            row.push(hourlyRate.toFixed(2), costs.toFixed(2));
+          }
+          
+          rows.push(row);
+        });
+      });
+
+      return [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    } else {
+      // Generate summary CSV (existing functionality)
+      const headers = ['Zeitraum', 'Gesamtstunden', 'Anzahl Einträge'];
+      if (includeCosts) {
+        headers.push('Personalkosten (€)');
+      }
+
+      const rows = data.map(item => {
+        const row = [
+          item.date || item.project || item.week || item.month || item.user,
+          item.totalHours.toFixed(2),
+          item.entries.length
+        ];
+        
+        if (includeCosts) {
+          row.push(item.totalCosts?.toFixed(2) || '0.00');
+        }
+        
+        return row;
+      });
+
+      return [headers, ...rows].map(row => row.join(',')).join('\n');
+    }
+  }
+
+  function calculateDuration(startTime: Date | string, endTime: Date | string, breakMinutes: number = 0) {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const diffMs = end.getTime() - start.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const breakHours = breakMinutes / 60;
+    
+    return Math.max(0, diffHours - breakHours);
   }
 
   // Reports data API for frontend display

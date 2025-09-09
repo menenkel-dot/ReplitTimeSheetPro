@@ -30,7 +30,9 @@ export default function TimeEntriesTable({
   const { user } = useAuth();
   const [filters, setFilters] = useState({
     project: "all",
-    period: "week"
+    employee: "all",
+    startDate: "",
+    endDate: ""
   });
 
   // Build query parameters based on user role and showAllForAdmin prop
@@ -52,6 +54,18 @@ export default function TimeEntriesTable({
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users", {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch users');
+      return response.json();
+    },
+    enabled: user?.role === 'admin' && showAllForAdmin
   });
 
   const deleteMutation = useMutation({
@@ -98,7 +112,40 @@ export default function TimeEntriesTable({
   };
 
 
-  const displayEntries = limit ? timeEntries.slice(0, limit) : timeEntries;
+  // Apply filters to entries
+  const filteredEntries = timeEntries.filter(entry => {
+    // Project filter
+    if (filters.project !== "all" && entry.projectId !== filters.project) {
+      return false;
+    }
+
+    // Employee filter (only for admins)
+    if (user?.role === 'admin' && showAllForAdmin && filters.employee !== "all") {
+      if (entry.userId !== filters.employee) {
+        return false;
+      }
+    }
+
+    // Date range filter
+    if (filters.startDate || filters.endDate) {
+      const entryDate = new Date(entry.date);
+      
+      if (filters.startDate) {
+        const startDate = new Date(filters.startDate);
+        if (entryDate < startDate) return false;
+      }
+      
+      if (filters.endDate) {
+        const endDate = new Date(filters.endDate);
+        endDate.setHours(23, 59, 59, 999); // Include the entire end date
+        if (entryDate > endDate) return false;
+      }
+    }
+
+    return true;
+  });
+
+  const displayEntries = limit ? filteredEntries.slice(0, limit) : filteredEntries;
 
   return (
     <Card>
@@ -106,10 +153,11 @@ export default function TimeEntriesTable({
         <div className="flex items-center justify-between">
           <CardTitle data-testid="text-table-title">{title}</CardTitle>
           {showFilters && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Project Filter */}
               <Select value={filters.project} onValueChange={(value) => setFilters({...filters, project: value})}>
                 <SelectTrigger className="w-48" data-testid="select-project-filter">
-                  <SelectValue />
+                  <SelectValue placeholder="Alle Projekte" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Alle Projekte</SelectItem>
@@ -120,18 +168,52 @@ export default function TimeEntriesTable({
                   ))}
                 </SelectContent>
               </Select>
-              
-              <Select value={filters.period} onValueChange={(value) => setFilters({...filters, period: value})}>
-                <SelectTrigger className="w-36" data-testid="select-period-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Heute</SelectItem>
-                  <SelectItem value="week">Diese Woche</SelectItem>
-                  <SelectItem value="month">Dieser Monat</SelectItem>
-                  <SelectItem value="7days">Letzten 7 Tage</SelectItem>
-                </SelectContent>
-              </Select>
+
+              {/* Employee Filter (only for admins) */}
+              {user?.role === 'admin' && showAllForAdmin && (
+                <Select value={filters.employee} onValueChange={(value) => setFilters({...filters, employee: value})}>
+                  <SelectTrigger className="w-48" data-testid="select-employee-filter">
+                    <SelectValue placeholder="Alle Mitarbeiter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Mitarbeiter</SelectItem>
+                    {users.map((u: any) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {`${u.firstName} ${u.lastName}`.trim() || u.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Date Range Filters */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({...filters, startDate: e.target.value})}
+                  className="px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  data-testid="input-start-date"
+                />
+                <span className="text-sm text-muted-foreground">bis</span>
+                <input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({...filters, endDate: e.target.value})}
+                  className="px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  data-testid="input-end-date"
+                />
+              </div>
+
+              {/* Clear Filters Button */}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setFilters({ project: "all", employee: "all", startDate: "", endDate: "" })}
+                data-testid="button-clear-filters"
+              >
+                Filter zurücksetzen
+              </Button>
             </div>
           )}
         </div>
@@ -246,7 +328,10 @@ export default function TimeEntriesTable({
         
         {showPagination && (
           <div className="p-4 border-t border-border flex items-center justify-between text-sm text-muted-foreground">
-            <span data-testid="text-pagination-info">Zeige 1-{displayEntries.length} von {timeEntries.length} Einträgen</span>
+            <span data-testid="text-pagination-info">
+              Zeige 1-{displayEntries.length} von {filteredEntries.length} Einträgen
+              {filteredEntries.length !== timeEntries.length && ` (${timeEntries.length} gesamt)`}
+            </span>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" disabled data-testid="button-page-prev">
                 Zurück

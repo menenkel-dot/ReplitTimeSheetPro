@@ -96,7 +96,7 @@ export function registerRoutes(app: Express): Server {
           endDate ? new Date(endDate as string) : undefined
         );
       } else {
-        // Regular user or admin requesting only their own entries
+        // Regular employees can only see their own entries
         entries = await storage.getTimeEntriesByUser(
           req.user.id,
           startDate ? new Date(startDate as string) : undefined,

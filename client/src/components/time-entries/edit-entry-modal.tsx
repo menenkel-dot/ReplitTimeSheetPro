@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -38,7 +37,7 @@ export function EditEntryModal({ entry, isOpen, onClose }: EditEntryModalProps) 
     if (entry) {
       const startTime = entry.startTime ? new Date(entry.startTime) : null;
       const endTime = entry.endTime ? new Date(entry.endTime) : null;
-      
+
       setFormData({
         date: new Date(entry.date).toISOString().split('T')[0],
         projectId: entry.projectId || "",
@@ -53,7 +52,7 @@ export function EditEntryModal({ entry, isOpen, onClose }: EditEntryModalProps) 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
       if (!entry) throw new Error("No entry to update");
-      
+
       const updateData = {
         date: data.date,
         projectId: data.projectId || null,
@@ -96,7 +95,7 @@ export function EditEntryModal({ entry, isOpen, onClose }: EditEntryModalProps) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.date || !formData.startTime) {
       toast({
         title: "Fehler",
@@ -113,7 +112,7 @@ export function EditEntryModal({ entry, isOpen, onClose }: EditEntryModalProps) 
 
   // Check if user can edit this entry
   const canEdit = user?.role === 'admin' || entry.userId === user?.id;
-  
+
   if (!canEdit) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -134,7 +133,7 @@ export function EditEntryModal({ entry, isOpen, onClose }: EditEntryModalProps) 
         <DialogHeader>
           <DialogTitle>Zeiteintrag bearbeiten</DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="date">Datum *</Label>
@@ -149,15 +148,21 @@ export function EditEntryModal({ entry, isOpen, onClose }: EditEntryModalProps) 
 
           <div>
             <Label htmlFor="project">Projekt</Label>
-            <Select value={formData.projectId} onValueChange={(value) => setFormData({ ...formData, projectId: value })}>
+            <Select value={formData.projectId || "no-project"} onValueChange={(value) => setFormData({ ...formData, projectId: value === "no-project" ? "" : value })}>
               <SelectTrigger>
                 <SelectValue placeholder="Projekt auswählen" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Kein Projekt</SelectItem>
+                <SelectItem value="no-project">Kein Projekt</SelectItem>
                 {projects.map(project => (
                   <SelectItem key={project.id} value={project.id}>
-                    {project.name}
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: project.color || '#3b82f6' }}
+                      />
+                      {project.name}
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>

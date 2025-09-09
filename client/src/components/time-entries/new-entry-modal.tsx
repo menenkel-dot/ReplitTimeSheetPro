@@ -77,25 +77,25 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
 
   const calculateDuration = () => {
     if (!formData.startTime || !formData.endTime) return "0:00h";
-    
+
     const [startHour, startMin] = formData.startTime.split(':').map(Number);
     const [endHour, endMin] = formData.endTime.split(':').map(Number);
-    
+
     const startMinutes = startHour * 60 + startMin;
     const endMinutes = endHour * 60 + endMin;
-    
+
     let totalMinutes = endMinutes - startMinutes - (formData.breakMinutes || 0);
     if (totalMinutes < 0) totalMinutes = 0;
-    
+
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    
+
     return `${hours}:${minutes.toString().padStart(2, '0')}h`;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const entryDate = new Date(formData.date);
     const startDateTime = new Date(formData.date + 'T' + formData.startTime + ':00');
     const endDateTime = new Date(formData.date + 'T' + formData.endTime + ':00');
@@ -145,17 +145,18 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
                 data-testid="input-entry-date"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="project">Projekt *</Label>
               <Select 
-                value={formData.projectId} 
-                onValueChange={(value) => setFormData({ ...formData, projectId: value })}
+                value={formData.projectId || "no-project"} 
+                onValueChange={(value) => setFormData({ ...formData, projectId: value === "no-project" ? "" : value })}
               >
                 <SelectTrigger data-testid="select-entry-project">
                   <SelectValue placeholder="Projekt auswählen..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="no-project">Kein Projekt</SelectItem>
                   {projects.map(project => (
                     <SelectItem key={project.id} value={project.id}>
                       <div className="flex items-center gap-2">
@@ -184,7 +185,7 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
                 data-testid="input-start-time"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="endTime">Endzeit *</Label>
               <Input
@@ -196,7 +197,7 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
                 data-testid="input-end-time"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="breakMinutes">Pause (Min.)</Label>
               <Input

@@ -24,7 +24,7 @@ export default function Dashboard() {
                 })}
               </p>
             </div>
-            
+
             <div className="flex items-center gap-4">
               <TimerWidget />
             </div>
@@ -33,17 +33,17 @@ export default function Dashboard() {
 
         <div className="flex-1 p-6 overflow-auto">
           <AdminSetup />
-          
+
           <div className="mt-6">
             <BalanceCards />
           </div>
-          
+
           <div className="mt-8">
             <TimeEntriesTable 
-              title="Aktuelle Zeiteinträge"
-              showFilters={true}
-              limit={10}
-            />
+            title="Letzte Zeiteinträge" 
+            limit={5}
+            showAllForAdmin={false}
+          />
           </div>
         </div>
       </div>

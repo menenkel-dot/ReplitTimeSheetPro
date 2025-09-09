@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { formatDate, formatTime } from "@/lib/date-utils";
 import type { TimeEntryWithRelations, Project } from "@shared/schema";
+import { EditEntryModal } from "./edit-entry-modal";
 
 interface TimeEntriesTableProps {
   title: string;
@@ -34,10 +35,11 @@ export default function TimeEntriesTable({
     startDate: "",
     endDate: ""
   });
+  const [editingEntry, setEditingEntry] = useState<TimeEntryWithRelations | null>(null);
 
   // Build query parameters based on user role and showAllForAdmin prop
   const queryParams = new URLSearchParams();
-  if (user?.role === 'admin' && showAllForAdmin) {
+  if (user?.role === 'admin' && showAllForAdmin === true) {
     queryParams.set('showAll', 'true');
   }
 
@@ -306,6 +308,7 @@ export default function TimeEntriesTable({
                       <Button 
                         variant="ghost" 
                         size="sm"
+                        onClick={() => setEditingEntry(entry)}
                         data-testid={`button-edit-${entry.id}`}
                       >
                         <Edit className="w-3 h-3" />
@@ -346,6 +349,12 @@ export default function TimeEntriesTable({
           </div>
         )}
       </CardContent>
+      
+      <EditEntryModal 
+        entry={editingEntry}
+        isOpen={!!editingEntry}
+        onClose={() => setEditingEntry(null)}
+      />
     </Card>
   );
 }

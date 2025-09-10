@@ -9,7 +9,7 @@ export default function BalanceCards() {
   const { user } = useAuth();
   
   const { data: timeEntries = [] } = useQuery<TimeEntryWithRelations[]>({
-    queryKey: ["/api/time-entries", ""], // Use same pattern as TimeEntriesTable but with empty params for dashboard
+    queryKey: ["/api/time-entries", "", user?.id], // Include user ID to prevent cache collision between users
     queryFn: async () => {
       const response = await fetch('/api/time-entries', {
         credentials: 'include'

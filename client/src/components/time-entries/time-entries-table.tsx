@@ -44,7 +44,7 @@ export default function TimeEntriesTable({
   }
 
   const { data: timeEntries = [] } = useQuery<TimeEntryWithRelations[]>({
-    queryKey: ["/api/time-entries", queryParams.toString()],
+    queryKey: ["/api/time-entries", queryParams.toString(), user?.id],
     queryFn: async () => {
       const response = await fetch(`/api/time-entries?${queryParams}`, {
         credentials: 'include'
@@ -80,7 +80,7 @@ export default function TimeEntriesTable({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries", ""] }); // Also invalidate dashboard cache
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries", "", user?.id] }); // Also invalidate dashboard cache
       toast({
         title: "Eintrag gelöscht",
         description: "Der Zeiteintrag wurde erfolgreich gelöscht."

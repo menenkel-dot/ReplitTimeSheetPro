@@ -75,7 +75,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: string, updateUser: Partial<InsertUser>): Promise<User> {
-    const [user] = await db.update(users).set(updateUser).where(eq(users.id, id)).returning();
+    const [user] = await db.update(users).set(updateUser as any).where(eq(users.id, id)).returning();
     return user;
   }
 
@@ -143,7 +143,11 @@ export class DatabaseStorage implements IStorage {
           firstName: users.firstName,
           lastName: users.lastName,
           role: users.role,
-          hourlyRate: users.hourlyRate
+          hourlyRate: users.hourlyRate,
+          password: users.password,
+          targetHoursPerDay: users.targetHoursPerDay,
+          isActive: users.isActive,
+          createdAt: users.createdAt
         },
         project: {
           id: projects.id,
@@ -200,7 +204,11 @@ export class DatabaseStorage implements IStorage {
           firstName: users.firstName,
           lastName: users.lastName,
           role: users.role,
-          hourlyRate: users.hourlyRate
+          hourlyRate: users.hourlyRate,
+          password: users.password,
+          targetHoursPerDay: users.targetHoursPerDay,
+          isActive: users.isActive,
+          createdAt: users.createdAt
         },
         project: {
           id: projects.id,

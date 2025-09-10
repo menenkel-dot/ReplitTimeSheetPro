@@ -94,7 +94,6 @@ export const workingHoursRelations = relations(workingHours, ({ one }) => ({
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
-  updatedAt: true,
 }).extend({
   hourlyRate: z.string().optional(),
 });

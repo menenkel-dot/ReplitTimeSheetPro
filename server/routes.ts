@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertProjectSchema, insertTimeEntrySchema, insertHolidaySchema, insertUserSchema } from "@shared/schema";
+import { insertProjectSchema, insertTimeEntrySchema, insertHolidaySchema, insertUserSchema, InsertUser } from "@shared/schema";
 import { z } from "zod";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -341,7 +341,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(403).json({ message: "Sie können nur sich selbst befördern" });
       }
       
-      const user = await storage.updateUser(req.params.id, { role: 'admin' });
+      const user = await storage.updateUser(req.params.id, { role: 'admin' } as Partial<InsertUser>);
       res.json(user);
     } catch (error) {
       res.status(500).json({ message: "Fehler beim Befördern des Benutzers" });
@@ -526,8 +526,8 @@ export function registerRoutes(app: Express): Server {
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([date, entries]: [string, any[]]) => {
-      const stats = calculateHoursAndCosts(entries, includeCosts);
+    return Object.entries(grouped).map(([date, entries]) => {
+      const stats = calculateHoursAndCosts(entries as any[], includeCosts);
       return {
         date,
         entries,
@@ -544,8 +544,8 @@ export function registerRoutes(app: Express): Server {
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([project, entries]: [string, any[]]) => {
-      const stats = calculateHoursAndCosts(entries, includeCosts);
+    return Object.entries(grouped).map(([project, entries]) => {
+      const stats = calculateHoursAndCosts(entries as any[], includeCosts);
       return {
         project,
         entries,
@@ -562,8 +562,8 @@ export function registerRoutes(app: Express): Server {
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([user, entries]: [string, any[]]) => {
-      const stats = calculateHoursAndCosts(entries, includeCosts);
+    return Object.entries(grouped).map(([user, entries]) => {
+      const stats = calculateHoursAndCosts(entries as any[], includeCosts);
       return {
         user,
         entries,
@@ -583,8 +583,8 @@ export function registerRoutes(app: Express): Server {
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([week, entries]: [string, any[]]) => {
-      const stats = calculateHoursAndCosts(entries, includeCosts);
+    return Object.entries(grouped).map(([week, entries]) => {
+      const stats = calculateHoursAndCosts(entries as any[], includeCosts);
       return {
         week,
         entries,
@@ -602,8 +602,8 @@ export function registerRoutes(app: Express): Server {
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([month, entries]: [string, any[]]) => {
-      const stats = calculateHoursAndCosts(entries, includeCosts);
+    return Object.entries(grouped).map(([month, entries]) => {
+      const stats = calculateHoursAndCosts(entries as any[], includeCosts);
       return {
         month,
         entries,

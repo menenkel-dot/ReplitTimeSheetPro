@@ -1,4 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { config } from "dotenv";
+
+// Load environment variables from .env file
+config();
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 

@@ -348,6 +348,64 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Project Statistics API (Admin only)
+  app.get("/api/projects/statistics", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+
+    try {
+      const { startDate, endDate } = req.query;
+      
+      let entries;
+      if (startDate && endDate) {
+        entries = await storage.getAllTimeEntries(
+          new Date(startDate as string),
+          new Date(endDate as string)
+        );
+      } else {
+        entries = await storage.getAllTimeEntries();
+      }
+      
+      // Group by project and calculate statistics
+      const projectStats = entries.reduce((acc, entry) => {
+        const projectId = entry.projectId || 'no-project';
+        const projectName = entry.project?.name || 'Ohne Projekt';
+        
+        if (!acc[projectId]) {
+          acc[projectId] = {
+            id: projectId,
+            name: projectName,
+            totalHours: 0,
+            totalCosts: 0,
+            color: entry.project?.color || '#6b7280'
+          };
+        }
+        
+        if (entry.startTime && entry.endTime) {
+          const start = new Date(entry.startTime);
+          const end = new Date(entry.endTime);
+          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+          const breakHours = (entry.breakMinutes || 0) / 60;
+          const actualHours = Math.max(0, hours - breakHours);
+          
+          acc[projectId].totalHours += actualHours;
+          
+          // Calculate costs if user has hourly rate
+          if (entry.user?.hourlyRate) {
+            const rate = parseFloat(entry.user.hourlyRate || '0');
+            acc[projectId].totalCosts += actualHours * rate;
+          }
+        }
+        
+        return acc;
+      }, {} as Record<string, { id: string; name: string; totalHours: number; totalCosts: number; color: string }>);
+      
+      res.json(Object.values(projectStats));
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Laden der Projekt-Statistiken" });
+    }
+  });
+
   // Holidays API
   app.get("/api/holidays", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

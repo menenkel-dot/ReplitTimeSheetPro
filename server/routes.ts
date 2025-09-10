@@ -81,9 +81,13 @@ export function registerRoutes(app: Express): Server {
     try {
       const { startDate, endDate, showAll } = req.query;
       
+      // Debug logging to track user context
+      console.log(`[DEBUG] Time entries request by user: ${req.user.id} (${req.user.username}) with role: ${req.user.role}`);
+      
       let entries;
       if (req.user.role === 'admin' && req.query.userId) {
         // Admin requesting specific user's entries
+        console.log(`[DEBUG] Admin requesting entries for user: ${req.query.userId}`);
         entries = await storage.getTimeEntriesByUser(
           req.query.userId as string,
           startDate ? new Date(startDate as string) : undefined,
@@ -91,12 +95,14 @@ export function registerRoutes(app: Express): Server {
         );
       } else if (req.user.role === 'admin' && showAll === 'true') {
         // Admin requesting all entries (only in time tracking view)
+        console.log(`[DEBUG] Admin requesting all entries`);
         entries = await storage.getAllTimeEntries(
           startDate ? new Date(startDate as string) : undefined,
           endDate ? new Date(endDate as string) : undefined
         );
       } else {
         // Regular employees can only see their own entries
+        console.log(`[DEBUG] Employee requesting their own entries for user ID: ${req.user.id}`);
         entries = await storage.getTimeEntriesByUser(
           req.user.id,
           startDate ? new Date(startDate as string) : undefined,
@@ -104,8 +110,10 @@ export function registerRoutes(app: Express): Server {
         );
       }
       
+      console.log(`[DEBUG] Returning ${entries.length} entries for user: ${req.user.id}`);
       res.json(entries);
     } catch (error) {
+      console.error(`[ERROR] Failed to load time entries for user ${req.user?.id}:`, error);
       res.status(500).json({ message: "Fehler beim Laden der Zeiteinträge" });
     }
   });

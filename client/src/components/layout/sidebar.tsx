@@ -24,9 +24,9 @@ export default function Sidebar() {
   ];
 
   const adminItems = [
-    { path: "/users", icon: Users, label: "Benutzer", roles: ['admin'] },
-    { path: "/groups", icon: Building2, label: "Gruppen", roles: ['admin'] },
-    { path: "/settings", icon: Settings, label: "Einstellungen", roles: ['admin'] },
+    { path: "/admin/users", icon: Users, label: "Benutzer", roles: ['admin'] },
+    { path: "/admin/groups", icon: Building2, label: "Gruppen", roles: ['admin'] },
+    { path: "/admin/settings", icon: Settings, label: "Einstellungen", roles: ['admin'] },
   ];
 
   const isActiveLink = (path: string) => {

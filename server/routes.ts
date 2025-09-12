@@ -551,6 +551,7 @@ export function registerRoutes(app: Express): Server {
           res.send(defaultCsv);
       }
     } catch (error) {
+      console.error('[ERROR] /api/reports/export failed:', error);
       res.status(500).json({ message: "Fehler beim Generieren des Reports" });
     }
   });
@@ -899,19 +900,40 @@ export function registerRoutes(app: Express): Server {
   }
 
   async function createPDFFromHTML(html: string): Promise<Buffer> {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu'
-      ]
-    });
+    let browser;
+    let page;
     
     try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      console.log('[DEBUG] Launching Puppeteer with no-sandbox mode...');
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-extensions',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding'
+        ],
+        timeout: 30000,
+        ...(process.env.PUPPETEER_EXECUTABLE_PATH && { 
+          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH 
+        })
+      });
+      
+      console.log('[DEBUG] Browser launched, creating new page...');
+      page = await browser.newPage();
+      
+      console.log('[DEBUG] Setting page content...');
+      await page.setContent(html, { 
+        waitUntil: 'domcontentloaded', 
+        timeout: 15000 
+      });
+      
+      console.log('[DEBUG] Emulating screen media and generating PDF...');
+      await page.emulateMediaType('screen');
       
       const pdf = await page.pdf({
         format: 'A4',
@@ -924,9 +946,28 @@ export function registerRoutes(app: Express): Server {
         }
       });
       
+      console.log('[DEBUG] PDF generated successfully');
       return Buffer.from(pdf);
+    } catch (error) {
+      console.error('[ERROR] PDF generation failed:', error);
+      throw error;
     } finally {
-      await browser.close();
+      if (page) {
+        try {
+          await page.close();
+          console.log('[DEBUG] Page closed');
+        } catch (e) {
+          console.error('[WARN] Error closing page:', e);
+        }
+      }
+      if (browser) {
+        try {
+          await browser.close();
+          console.log('[DEBUG] Browser closed');
+        } catch (e) {
+          console.error('[WARN] Error closing browser:', e);
+        }
+      }
     }
   }
 

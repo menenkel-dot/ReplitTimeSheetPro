@@ -539,11 +539,10 @@ export function registerRoutes(app: Express): Server {
           res.send(xlsxBuffer);
           break;
         case 'pdf':
-          // For now, return CSV for pdf requests too
-          const pdfCsv = generateCSV(processedData, showCosts, isAdmin);
-          res.setHeader('Content-Type', 'text/csv');
-          res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
-          res.send(pdfCsv);
+          const pdfBuffer = await generatePDF(processedData, showCosts, isAdmin);
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', 'attachment; filename=report.pdf');
+          res.send(pdfBuffer);
           break;
         default:
           const defaultCsv = generateCSV(processedData, showCosts, isAdmin);

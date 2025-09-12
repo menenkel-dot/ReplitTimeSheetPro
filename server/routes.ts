@@ -7,7 +7,7 @@ import { z } from "zod";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import * as XLSX from "xlsx";
-import puppeteer from "puppeteer";
+import PDFDocument from "pdfkit";
 
 const scryptAsync = promisify(scrypt);
 
@@ -747,35 +747,82 @@ export function registerRoutes(app: Express): Server {
   }
 
   async function generatePDF(data: any[], includeCosts: boolean = false, isAdmin: boolean = false): Promise<Buffer> {
-    if (data.length === 0) {
-      return await createPDFFromHTML('<html><body><h1>Keine Daten verfügbar</h1></body></html>');
-    }
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('[DEBUG] Starting PDF generation with PDFKit...');
+        const doc = new PDFDocument({ margin: 50 });
+        const chunks: Buffer[] = [];
+        
+        doc.on('data', chunk => chunks.push(chunk));
+        doc.on('end', () => {
+          console.log('[DEBUG] PDF generation completed successfully');
+          resolve(Buffer.concat(chunks));
+        });
+        doc.on('error', reject);
 
-    // Check if we have detailed entries (not grouped data)
-    const hasDetailedEntries = data.some(item => item.entries && item.entries.length > 0);
-    
-    let html: string;
-    
-    if (isAdmin && hasDetailedEntries) {
-      // Generate detailed PDF with individual entries
-      html = generateDetailedReportHTML(data, includeCosts);
-    } else {
-      // Generate summary PDF
-      html = generateSummaryReportHTML(data, includeCosts);
-    }
+        if (data.length === 0) {
+          doc.fontSize(20).text('Zeiterfassungs-Report', 50, 50);
+          doc.fontSize(12).text('Keine Daten verfügbar', 50, 100);
+          doc.end();
+          return;
+        }
 
-    return await createPDFFromHTML(html);
+        // Check if we have detailed entries (not grouped data)
+        const hasDetailedEntries = data.some(item => item.entries && item.entries.length > 0);
+        
+        // Header
+        doc.fontSize(20).text('Zeiterfassungs-Report', 50, 50);
+        doc.fontSize(10).text(`Erstellt am: ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE')}`, 50, 80);
+        
+        let yPos = 120;
+
+        if (isAdmin && hasDetailedEntries) {
+          // Generate detailed PDF
+          yPos = generateDetailedPDFContent(doc, data, includeCosts, yPos);
+        } else {
+          // Generate summary PDF
+          yPos = generateSummaryPDFContent(doc, data, includeCosts, yPos);
+        }
+
+        // Footer
+        doc.fontSize(8).text('Zeiterfassungs-System - Automatisch generierter Report', 50, doc.page.height - 50);
+        
+        doc.end();
+      } catch (error) {
+        console.error('[ERROR] PDF generation with PDFKit failed:', error);
+        reject(error);
+      }
+    });
   }
 
-  function generateDetailedReportHTML(data: any[], includeCosts: boolean = false): string {
+  function generateDetailedPDFContent(doc: any, data: any[], includeCosts: boolean, yPos: number): number {
     const headers = ['Datum', 'Startzeit', 'Endzeit', 'Dauer (Std)', 'Pause (Min)', 'Beschreibung', 'Mitarbeiter', 'Projekt', 'Status'];
     if (includeCosts) {
       headers.push('Stundensatz (€)', 'Kosten (€)');
     }
 
-    let tableRows = '';
+    // Table header
+    doc.fontSize(10).fillColor('black');
+    let xPos = 50;
+    const colWidths = includeCosts ? [70, 60, 60, 60, 50, 100, 80, 80, 50, 70, 60] : [80, 70, 70, 70, 60, 120, 100, 100, 70];
+    
+    headers.forEach((header, i) => {
+      doc.text(header, xPos, yPos, { width: colWidths[i], align: 'left' });
+      xPos += colWidths[i];
+    });
+    
+    yPos += 20;
+    doc.moveTo(50, yPos).lineTo(550, yPos).stroke();
+    yPos += 10;
+
+    // Table rows
     data.forEach(group => {
       group.entries.forEach((entry: any) => {
+        if (yPos > doc.page.height - 100) {
+          doc.addPage();
+          yPos = 50;
+        }
+
         const duration = entry.startTime && entry.endTime 
           ? calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes || 0)
           : 0;
@@ -803,22 +850,46 @@ export function registerRoutes(app: Express): Server {
           const costs = duration * hourlyRate;
           cells.push(hourlyRate.toFixed(2), costs.toFixed(2));
         }
-        
-        tableRows += `<tr>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
+
+        xPos = 50;
+        cells.forEach((cell, i) => {
+          doc.fontSize(8).text(cell, xPos, yPos, { width: colWidths[i], align: 'left' });
+          xPos += colWidths[i];
+        });
+        yPos += 15;
       });
     });
 
-    return createReportHTML('Detaillierter Zeiterfassungs-Report', headers, tableRows);
+    return yPos;
   }
 
-  function generateSummaryReportHTML(data: any[], includeCosts: boolean = false): string {
+  function generateSummaryPDFContent(doc: any, data: any[], includeCosts: boolean, yPos: number): number {
     const headers = ['Zeitraum', 'Gesamtstunden', 'Anzahl Einträge'];
     if (includeCosts) {
       headers.push('Personalkosten (€)');
     }
 
-    let tableRows = '';
+    // Table header
+    doc.fontSize(10).fillColor('black');
+    let xPos = 50;
+    const colWidths = includeCosts ? [200, 100, 100, 100] : [200, 150, 150];
+    
+    headers.forEach((header, i) => {
+      doc.text(header, xPos, yPos, { width: colWidths[i], align: 'left' });
+      xPos += colWidths[i];
+    });
+    
+    yPos += 20;
+    doc.moveTo(50, yPos).lineTo(550, yPos).stroke();
+    yPos += 10;
+
+    // Table rows
     data.forEach(item => {
+      if (yPos > doc.page.height - 100) {
+        doc.addPage();
+        yPos = 50;
+      }
+
       const cells = [
         item.date || item.project || item.week || item.month || item.user,
         item.totalHours.toFixed(2),
@@ -828,147 +899,16 @@ export function registerRoutes(app: Express): Server {
       if (includeCosts) {
         cells.push(item.totalCosts?.toFixed(2) || '0.00');
       }
-      
-      tableRows += `<tr>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
+
+      xPos = 50;
+      cells.forEach((cell, i) => {
+        doc.fontSize(9).text(cell, xPos, yPos, { width: colWidths[i], align: 'left' });
+        xPos += colWidths[i];
+      });
+      yPos += 18;
     });
 
-    return createReportHTML('Zeiterfassungs-Report Übersicht', headers, tableRows);
-  }
-
-  function createReportHTML(title: string, headers: string[], tableRows: string): string {
-    const headerCells = headers.map(header => `<th>${header}</th>`).join('');
-    
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>${title}</title>
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px;
-            color: #333;
-          }
-          h1 { 
-            color: #2563eb;
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 10px;
-          }
-          table { 
-            border-collapse: collapse; 
-            width: 100%; 
-            margin-top: 20px;
-          }
-          th, td { 
-            border: 1px solid #d1d5db; 
-            padding: 8px; 
-            text-align: left;
-          }
-          th { 
-            background-color: #f3f4f6;
-            font-weight: bold;
-          }
-          tr:nth-child(even) {
-            background-color: #f9fafb;
-          }
-          .footer {
-            margin-top: 30px;
-            font-size: 12px;
-            color: #6b7280;
-            text-align: center;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>${title}</h1>
-        <p>Erstellt am: ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE')}</p>
-        <table>
-          <thead>
-            <tr>${headerCells}</tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-        <div class="footer">
-          <p>Zeiterfassungs-System - Automatisch generierter Report</p>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  async function createPDFFromHTML(html: string): Promise<Buffer> {
-    let browser;
-    let page;
-    
-    try {
-      console.log('[DEBUG] Launching Puppeteer with no-sandbox mode...');
-      browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--disable-extensions',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding'
-        ],
-        timeout: 30000,
-        ...(process.env.PUPPETEER_EXECUTABLE_PATH && { 
-          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH 
-        })
-      });
-      
-      console.log('[DEBUG] Browser launched, creating new page...');
-      page = await browser.newPage();
-      
-      console.log('[DEBUG] Setting page content...');
-      await page.setContent(html, { 
-        waitUntil: 'domcontentloaded', 
-        timeout: 15000 
-      });
-      
-      console.log('[DEBUG] Emulating screen media and generating PDF...');
-      await page.emulateMediaType('screen');
-      
-      const pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '20mm',
-          right: '15mm',
-          bottom: '20mm',
-          left: '15mm'
-        }
-      });
-      
-      console.log('[DEBUG] PDF generated successfully');
-      return Buffer.from(pdf);
-    } catch (error) {
-      console.error('[ERROR] PDF generation failed:', error);
-      throw error;
-    } finally {
-      if (page) {
-        try {
-          await page.close();
-          console.log('[DEBUG] Page closed');
-        } catch (e) {
-          console.error('[WARN] Error closing page:', e);
-        }
-      }
-      if (browser) {
-        try {
-          await browser.close();
-          console.log('[DEBUG] Browser closed');
-        } catch (e) {
-          console.error('[WARN] Error closing browser:', e);
-        }
-      }
-    }
+    return yPos;
   }
 
   function calculateDuration(startTime: Date | string, endTime: Date | string, breakMinutes: number = 0) {

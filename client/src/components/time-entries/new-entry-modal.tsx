@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { Save, X } from "lucide-react";
-import type { Project, InsertTimeEntry } from "@shared/schema";
+import type { Project, InsertTimeEntry, User } from "@shared/schema";
 
 interface NewEntryModalProps {
   isOpen: boolean;
@@ -18,17 +19,26 @@ interface NewEntryModalProps {
 
 export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     projectId: "",
     startTime: "09:00",
     endTime: "17:00",
     breakMinutes: 30,
-    description: ""
+    description: "",
+    userId: ""
   });
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+  });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: isAdmin,
   });
 
   const createMutation = useMutation({
@@ -46,8 +56,11 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all time entries queries to ensure admin views refresh
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries", ""] }); // Also invalidate dashboard cache
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === "/api/time-entries" 
+      });
       toast({
         title: "Zeiteintrag erstellt",
         description: "Der Zeiteintrag wurde erfolgreich gespeichert."
@@ -71,7 +84,8 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
       startTime: "09:00",
       endTime: "17:00",
       breakMinutes: 30,
-      description: ""
+      description: "",
+      userId: ""
     });
   };
 
@@ -96,6 +110,16 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Enforce employee selection for admins
+    if (isAdmin && !formData.userId) {
+      toast({
+        title: "Fehler",
+        description: "Bitte wählen Sie einen Mitarbeiter aus.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const entryDate = new Date(formData.date);
     const startDateTime = new Date(formData.date + 'T' + formData.startTime + ':00');
     const endDateTime = new Date(formData.date + 'T' + formData.endTime + ':00');
@@ -108,7 +132,9 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
       description: formData.description,
       projectId: formData.projectId || null,
       status: 'draft',
-      isRunning: false
+      isRunning: false,
+      // If admin is creating for another user, use selected userId, otherwise let backend use current user's ID
+      ...(isAdmin && formData.userId ? { userId: formData.userId } : {})
     };
 
     createMutation.mutate(entryData as InsertTimeEntry);
@@ -133,6 +159,28 @@ export default function NewEntryModal({ isOpen, onClose }: NewEntryModalProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {isAdmin && (
+            <div className="space-y-2">
+              <Label htmlFor="employee">Mitarbeiter *</Label>
+              <Select 
+                value={formData.userId} 
+                onValueChange={(value) => setFormData({ ...formData, userId: value })}
+                required={isAdmin}
+              >
+                <SelectTrigger data-testid="select-employee">
+                  <SelectValue placeholder="Mitarbeiter auswählen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map(employee => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.firstName} {employee.lastName} ({employee.username})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date">Datum *</Label>

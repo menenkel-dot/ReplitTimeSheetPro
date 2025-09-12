@@ -127,17 +127,25 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
+      // Enforce userId selection for admins
+      if (req.user.role === 'admin' && !req.body.userId) {
+        return res.status(400).json({ message: "Admins müssen einen Mitarbeiter auswählen" });
+      }
+
+      // Allow admins to create entries for other users
+      const targetUserId = req.body.userId && req.user.role === 'admin' ? req.body.userId : req.user.id;
+      
       const entryData = insertTimeEntrySchema.parse({
         ...req.body,
-        userId: req.user.id,
+        userId: targetUserId,
         date: new Date(req.body.date),
         startTime: new Date(req.body.startTime),
         endTime: req.body.endTime ? new Date(req.body.endTime) : null,
       });
 
-      // Check for overlapping entries
+      // Check for overlapping entries for the target user
       const existingEntries = await storage.getTimeEntriesByUser(
-        req.user.id,
+        targetUserId,
         entryData.date,
         entryData.date
       );

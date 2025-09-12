@@ -14,6 +14,13 @@ if (!process.env.DATABASE_URL) {
 // Configure the pool with SSL settings to handle certificate issues
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  idleTimeoutMillis: 3000  // Reduce idle timeout to proactively close idle connections
 });
+
+// Add error handling for pool connection drops
+pool.on('error', (err) => {
+  console.warn('Database pool error (connection will be recreated):', err);
+});
+
 export const db = drizzle({ client: pool, schema });

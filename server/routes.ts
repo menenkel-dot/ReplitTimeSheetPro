@@ -6,6 +6,7 @@ import { insertProjectSchema, insertTimeEntrySchema, insertHolidaySchema, insert
 import { z } from "zod";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
+import * as XLSX from "xlsx";
 
 const scryptAsync = promisify(scrypt);
 
@@ -753,6 +754,116 @@ export function registerRoutes(app: Express): Server {
     const breakHours = breakMinutes / 60;
     
     return Math.max(0, diffHours - breakHours);
+  }
+
+  function generateXLSX(data: any[], includeCosts: boolean = false, isAdmin: boolean = false): Buffer {
+    if (data.length === 0) {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([['Keine Daten verfügbar']]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Report');
+      return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    }
+
+    // Check if we have detailed entries (not grouped data)
+    const hasDetailedEntries = data.some(item => item.entries && item.entries.length > 0);
+    
+    const wb = XLSX.utils.book_new();
+    
+    if (isAdmin && hasDetailedEntries) {
+      // Generate detailed XLSX with individual entries
+      const headers = ['Datum', 'Startzeit', 'Endzeit', 'Dauer (Std)', 'Pause (Min)', 'Beschreibung', 'Mitarbeiter', 'Projekt', 'Status'];
+      if (includeCosts) {
+        headers.push('Stundensatz (€)', 'Kosten (€)');
+      }
+
+      const rows: any[][] = [headers];
+      
+      data.forEach(group => {
+        group.entries.forEach((entry: any) => {
+          const duration = entry.startTime && entry.endTime 
+            ? calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes || 0)
+            : 0;
+          
+          const userName = entry.user 
+            ? `${entry.user.firstName} ${entry.user.lastName}`.trim()
+            : 'Unbekannt';
+          
+          const projectName = entry.project?.name || 'Ohne Projekt';
+          
+          const row = [
+            new Date(entry.date).toLocaleDateString('de-DE'),
+            entry.startTime ? new Date(entry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '',
+            entry.endTime ? new Date(entry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '',
+            parseFloat(duration.toFixed(2)),
+            entry.breakMinutes || 0,
+            entry.description || '',
+            userName,
+            projectName,
+            entry.status || 'draft'
+          ];
+          
+          if (includeCosts) {
+            const hourlyRate = parseFloat(entry.user?.hourlyRate || '0');
+            const costs = duration * hourlyRate;
+            row.push(hourlyRate, costs);
+          }
+          
+          rows.push(row);
+        });
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      
+      // Auto-size columns
+      const colWidths = headers.map((header, i) => {
+        const maxLength = Math.max(
+          header.length,
+          ...rows.slice(1).map(row => String(row[i] || '').length)
+        );
+        return { wch: Math.min(maxLength + 2, 30) };
+      });
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Zeiteinträge');
+    } else {
+      // Generate summary XLSX (existing functionality)
+      const headers = ['Zeitraum', 'Gesamtstunden', 'Anzahl Einträge'];
+      if (includeCosts) {
+        headers.push('Personalkosten (€)');
+      }
+
+      const rows = [headers];
+      
+      data.forEach(item => {
+        const row = [
+          item.date || item.project || item.week || item.month || item.user,
+          parseFloat(item.totalHours.toFixed(2)),
+          item.entries.length
+        ];
+        
+        if (includeCosts) {
+          row.push(parseFloat(item.totalCosts?.toFixed(2) || '0'));
+        }
+        
+        rows.push(row);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      
+      // Auto-size columns
+      const colWidths = headers.map((header, i) => {
+        const maxLength = Math.max(
+          header.length,
+          ...rows.slice(1).map(row => String(row[i] || '').length)
+        );
+        return { wch: Math.min(maxLength + 2, 20) };
+      });
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Zusammenfassung');
+    }
+
+    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   }
 
   // Reports data API for frontend display

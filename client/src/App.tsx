@@ -23,9 +23,9 @@ function Router() {
       <ProtectedRoute path="/timetracking" component={TimeTracking} />
       <ProtectedRoute path="/reports" component={Reports} />
       <ProtectedRoute path="/projects" component={Projects} />
-      <ProtectedRoute path="/users" component={AdminUsers} />
-      <ProtectedRoute path="/groups" component={AdminGroups} />
-      <ProtectedRoute path="/settings" component={AdminSettings} />
+      <ProtectedRoute path="/admin/users" component={AdminUsers} />
+      <ProtectedRoute path="/admin/groups" component={AdminGroups} />
+      <ProtectedRoute path="/admin/settings" component={AdminSettings} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

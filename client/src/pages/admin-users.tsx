@@ -121,7 +121,7 @@ export default function AdminUsers() {
         delete updateData.password;
       }
       if (updateData.hourlyRate !== null) {
-        updateData.hourlyRate = updateData.hourlyRate.toString();
+        (updateData as any).hourlyRate = updateData.hourlyRate.toString();
       }
       const res = await apiRequest("PUT", `/api/users/${id}`, updateData);
       return res.json();
@@ -307,14 +307,14 @@ export default function AdminUsers() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Gruppe</FormLabel>
-                            <Select onValueChange={(v) => field.onChange(v || null)} value={field.value ?? ""}>
+                            <Select onValueChange={(v) => field.onChange(v === "none" ? null : v)} value={field.value ?? "none"}>
                               <FormControl>
                                 <SelectTrigger data-testid="select-group">
                                   <SelectValue placeholder="Gruppe auswählen (optional)" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">Keine Gruppe</SelectItem>
+                                <SelectItem value="none">Keine Gruppe</SelectItem>
                                 {groups.map((group) => (
                                   <SelectItem key={group.id} value={group.id}>
                                     {group.name}
@@ -517,14 +517,14 @@ export default function AdminUsers() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Gruppe</FormLabel>
-                        <Select onValueChange={(v) => field.onChange(v || null)} value={field.value ?? ""}>
+                        <Select onValueChange={(v) => field.onChange(v === "none" ? null : v)} value={field.value ?? "none"}>
                           <FormControl>
                             <SelectTrigger data-testid="select-edit-group">
                               <SelectValue placeholder="Gruppe auswählen (optional)" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">Keine Gruppe</SelectItem>
+                            <SelectItem value="none">Keine Gruppe</SelectItem>
                             {groups.map((group) => (
                               <SelectItem key={group.id} value={group.id}>
                                 {group.name}
@@ -712,7 +712,11 @@ export default function AdminUsers() {
                               return group ? (
                                 <Badge 
                                   variant="outline" 
-                                  style={{ backgroundColor: `${group.color}20`, borderColor: group.color, color: group.color }}
+                                  style={{ 
+                                    backgroundColor: group.color ? `${group.color}20` : undefined, 
+                                    borderColor: group.color || undefined, 
+                                    color: group.color || undefined 
+                                  }}
                                 >
                                   {group.name}
                                 </Badge>

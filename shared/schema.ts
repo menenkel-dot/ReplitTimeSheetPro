@@ -7,6 +7,15 @@ import { z } from "zod";
 export const roleEnum = pgEnum('role', ['employee', 'admin']);
 export const statusEnum = pgEnum('status', ['draft', 'submitted', 'approved', 'rejected']);
 
+export const groups = pgTable("groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  color: text("color").default('#10b981'),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").default(sql`now()`),
+});
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
@@ -15,6 +24,7 @@ export const users = pgTable("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   role: roleEnum("role").notNull().default('employee'),
+  groupId: varchar("group_id").references(() => groups.id),
   hourlyRate: decimal("hourly_rate", { precision: 8, scale: 2 }),
   targetHoursPerDay: integer("target_hours_per_day").default(8),
   isActive: boolean("is_active").default(true),
@@ -63,9 +73,17 @@ export const workingHours = pgTable("working_hours", {
 });
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const groupsRelations = relations(groups, ({ many }) => ({
+  users: many(users),
+}));
+
+export const usersRelations = relations(users, ({ many, one }) => ({
   timeEntries: many(timeEntries),
   workingHours: many(workingHours),
+  group: one(groups, {
+    fields: [users.groupId],
+    references: [groups.id],
+  }),
 }));
 
 export const projectsRelations = relations(projects, ({ many }) => ({
@@ -91,6 +109,11 @@ export const workingHoursRelations = relations(workingHours, ({ one }) => ({
 }));
 
 // Insert schemas
+export const insertGroupSchema = createInsertSchema(groups).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -118,6 +141,8 @@ export const insertWorkingHoursSchema = createInsertSchema(workingHours).omit({
 });
 
 // Types
+export type Group = typeof groups.$inferSelect;
+export type InsertGroup = z.infer<typeof insertGroupSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Project = typeof projects.$inferSelect;
@@ -130,12 +155,17 @@ export type WorkingHours = typeof workingHours.$inferSelect;
 export type InsertWorkingHours = z.infer<typeof insertWorkingHoursSchema>;
 
 // Extended types for queries with relations
+export type GroupWithRelations = Group & {
+  users?: User[];
+};
+
 export type TimeEntryWithRelations = TimeEntry & {
-  user?: User;
+  user?: User & { group?: Group };
   project?: Project;
 };
 
 export type UserWithRelations = User & {
   timeEntries?: TimeEntry[];
   workingHours?: WorkingHours[];
+  group?: Group;
 };

@@ -532,11 +532,10 @@ export function registerRoutes(app: Express): Server {
           res.send(csv);
           break;
         case 'xlsx':
-          // For now, return CSV for xlsx requests too
-          const xlsxCsv = generateCSV(processedData, showCosts, isAdmin);
-          res.setHeader('Content-Type', 'text/csv');
-          res.setHeader('Content-Disposition', 'attachment; filename=report.csv');
-          res.send(xlsxCsv);
+          const xlsxBuffer = generateXLSX(processedData, showCosts, isAdmin);
+          res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          res.setHeader('Content-Disposition', 'attachment; filename=report.xlsx');
+          res.send(xlsxBuffer);
           break;
         case 'pdf':
           // For now, return CSV for pdf requests too

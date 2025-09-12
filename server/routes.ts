@@ -7,6 +7,7 @@ import { z } from "zod";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import * as XLSX from "xlsx";
+import puppeteer from "puppeteer";
 
 const scryptAsync = promisify(scrypt);
 
@@ -742,6 +743,191 @@ export function registerRoutes(app: Express): Server {
       });
 
       return [headers, ...rows].map(row => row.join(',')).join('\n');
+    }
+  }
+
+  async function generatePDF(data: any[], includeCosts: boolean = false, isAdmin: boolean = false): Promise<Buffer> {
+    if (data.length === 0) {
+      return await createPDFFromHTML('<html><body><h1>Keine Daten verfügbar</h1></body></html>');
+    }
+
+    // Check if we have detailed entries (not grouped data)
+    const hasDetailedEntries = data.some(item => item.entries && item.entries.length > 0);
+    
+    let html: string;
+    
+    if (isAdmin && hasDetailedEntries) {
+      // Generate detailed PDF with individual entries
+      html = generateDetailedReportHTML(data, includeCosts);
+    } else {
+      // Generate summary PDF
+      html = generateSummaryReportHTML(data, includeCosts);
+    }
+
+    return await createPDFFromHTML(html);
+  }
+
+  function generateDetailedReportHTML(data: any[], includeCosts: boolean = false): string {
+    const headers = ['Datum', 'Startzeit', 'Endzeit', 'Dauer (Std)', 'Pause (Min)', 'Beschreibung', 'Mitarbeiter', 'Projekt', 'Status'];
+    if (includeCosts) {
+      headers.push('Stundensatz (€)', 'Kosten (€)');
+    }
+
+    let tableRows = '';
+    data.forEach(group => {
+      group.entries.forEach((entry: any) => {
+        const duration = entry.startTime && entry.endTime 
+          ? calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes || 0)
+          : 0;
+        
+        const userName = entry.user 
+          ? `${entry.user.firstName} ${entry.user.lastName}`.trim()
+          : 'Unbekannt';
+        
+        const projectName = entry.project?.name || 'Ohne Projekt';
+        
+        const cells = [
+          new Date(entry.date).toLocaleDateString('de-DE'),
+          entry.startTime ? new Date(entry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '',
+          entry.endTime ? new Date(entry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '',
+          duration.toFixed(2),
+          (entry.breakMinutes || 0).toString(),
+          entry.description || '',
+          userName,
+          projectName,
+          entry.status || 'draft'
+        ];
+        
+        if (includeCosts) {
+          const hourlyRate = parseFloat(entry.user?.hourlyRate || '0');
+          const costs = duration * hourlyRate;
+          cells.push(hourlyRate.toFixed(2), costs.toFixed(2));
+        }
+        
+        tableRows += `<tr>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
+      });
+    });
+
+    return createReportHTML('Detaillierter Zeiterfassungs-Report', headers, tableRows);
+  }
+
+  function generateSummaryReportHTML(data: any[], includeCosts: boolean = false): string {
+    const headers = ['Zeitraum', 'Gesamtstunden', 'Anzahl Einträge'];
+    if (includeCosts) {
+      headers.push('Personalkosten (€)');
+    }
+
+    let tableRows = '';
+    data.forEach(item => {
+      const cells = [
+        item.date || item.project || item.week || item.month || item.user,
+        item.totalHours.toFixed(2),
+        item.entries.length.toString()
+      ];
+      
+      if (includeCosts) {
+        cells.push(item.totalCosts?.toFixed(2) || '0.00');
+      }
+      
+      tableRows += `<tr>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
+    });
+
+    return createReportHTML('Zeiterfassungs-Report Übersicht', headers, tableRows);
+  }
+
+  function createReportHTML(title: string, headers: string[], tableRows: string): string {
+    const headerCells = headers.map(header => `<th>${header}</th>`).join('');
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${title}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+            color: #333;
+          }
+          h1 { 
+            color: #2563eb;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+          }
+          table { 
+            border-collapse: collapse; 
+            width: 100%; 
+            margin-top: 20px;
+          }
+          th, td { 
+            border: 1px solid #d1d5db; 
+            padding: 8px; 
+            text-align: left;
+          }
+          th { 
+            background-color: #f3f4f6;
+            font-weight: bold;
+          }
+          tr:nth-child(even) {
+            background-color: #f9fafb;
+          }
+          .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${title}</h1>
+        <p>Erstellt am: ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE')}</p>
+        <table>
+          <thead>
+            <tr>${headerCells}</tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>Zeiterfassungs-System - Automatisch generierter Report</p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  async function createPDFFromHTML(html: string): Promise<Buffer> {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+      ]
+    });
+    
+    try {
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20mm',
+          right: '15mm',
+          bottom: '20mm',
+          left: '15mm'
+        }
+      });
+      
+      return Buffer.from(pdf);
+    } finally {
+      await browser.close();
     }
   }
 

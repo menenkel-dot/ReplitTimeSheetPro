@@ -16,7 +16,7 @@ import { z } from "zod";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { User, InsertUser } from "@shared/schema";
+import type { User, InsertUser, Group } from "@shared/schema";
 
 const userSchema = z.object({
   username: z.string().min(3, "Benutzername muss mindestens 3 Zeichen lang sein"),
@@ -25,6 +25,7 @@ const userSchema = z.object({
   email: z.string().email("Ungültige E-Mail-Adresse").optional().or(z.literal("")),
   password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
   role: z.enum(["employee", "admin"]),
+  groupId: z.string().nullable(),
   hourlyRate: z.coerce.number().min(0, "Stundenlohn muss positiv sein").nullable(),
   targetHoursPerDay: z.coerce.number().min(0, "Zielstunden pro Tag müssen positiv sein").default(8),
   isActive: z.boolean()
@@ -45,6 +46,11 @@ export default function AdminUsers() {
     enabled: currentUser?.role === 'admin'
   });
 
+  const { data: groups = [] } = useQuery<Group[]>({
+    queryKey: ["/api/groups"],
+    enabled: currentUser?.role === 'admin'
+  });
+
   const createForm = useForm<z.infer<typeof userSchema>>({
     resolver: zodResolver(userSchema),
     defaultValues: {
@@ -54,6 +60,7 @@ export default function AdminUsers() {
       email: "",
       password: "",
       role: "employee" as const,
+      groupId: null,
       hourlyRate: null,
       targetHoursPerDay: 8,
       isActive: true
@@ -69,6 +76,7 @@ export default function AdminUsers() {
       email: "",
       password: "",
       role: "employee",
+      groupId: null,
       hourlyRate: null,
       targetHoursPerDay: 8,
       isActive: true
@@ -79,6 +87,7 @@ export default function AdminUsers() {
     mutationFn: async (data: z.infer<typeof userSchema>) => {
       const submitData = {
         ...data,
+        groupId: data.groupId || null,
         hourlyRate: data.hourlyRate !== null ? data.hourlyRate.toString() : null
       };
       const res = await apiRequest("POST", "/api/users", submitData);
@@ -104,7 +113,10 @@ export default function AdminUsers() {
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof editUserSchema> }) => {
-      const updateData = { ...data };
+      const updateData = { 
+        ...data,
+        groupId: data.groupId || null
+      };
       if (!updateData.password) {
         delete updateData.password;
       }
@@ -151,6 +163,7 @@ export default function AdminUsers() {
       email: user.email || "",
       password: "",
       role: user.role,
+      groupId: user.groupId || null,
       hourlyRate: user.hourlyRate !== null ? Number(user.hourlyRate) : null,
       targetHoursPerDay: user.targetHoursPerDay || 8,
       isActive: user.isActive === null ? true : user.isActive
@@ -273,7 +286,7 @@ export default function AdminUsers() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Rolle</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger data-testid="select-role">
                                   <SelectValue placeholder="Rolle auswählen" />
@@ -282,6 +295,31 @@ export default function AdminUsers() {
                               <SelectContent>
                                 <SelectItem value="employee">Mitarbeiter</SelectItem>
                                 <SelectItem value="admin">Administrator</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={createForm.control}
+                        name="groupId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Gruppe</FormLabel>
+                            <Select onValueChange={(v) => field.onChange(v || null)} value={field.value ?? ""}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-group">
+                                  <SelectValue placeholder="Gruppe auswählen (optional)" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="">Keine Gruppe</SelectItem>
+                                {groups.map((group) => (
+                                  <SelectItem key={group.id} value={group.id}>
+                                    {group.name}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -475,6 +513,31 @@ export default function AdminUsers() {
                   />
                   <FormField
                     control={editForm.control}
+                    name="groupId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Gruppe</FormLabel>
+                        <Select onValueChange={(v) => field.onChange(v || null)} value={field.value ?? ""}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-edit-group">
+                              <SelectValue placeholder="Gruppe auswählen (optional)" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="">Keine Gruppe</SelectItem>
+                            {groups.map((group) => (
+                              <SelectItem key={group.id} value={group.id}>
+                                {group.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
                     name="hourlyRate"
                     render={({ field }) => (
                       <FormItem>
@@ -621,6 +684,7 @@ export default function AdminUsers() {
                       <th className="text-left py-2">Benutzername</th>
                       <th className="text-left py-2">E-Mail</th>
                       <th className="text-left py-2">Rolle</th>
+                      <th className="text-left py-2">Gruppe</th>
                       <th className="text-left py-2">Status</th>
                       <th className="text-left py-2">Stundenlohn</th>
                       <th className="text-left py-2">Aktionen</th>
@@ -640,6 +704,23 @@ export default function AdminUsers() {
                           <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                             {user.role === 'admin' ? 'Administrator' : 'Mitarbeiter'}
                           </Badge>
+                        </td>
+                        <td className="py-3" data-testid={`text-user-group-${user.id}`}>
+                          {user.groupId ? (
+                            (() => {
+                              const group = groups.find(g => g.id === user.groupId);
+                              return group ? (
+                                <Badge 
+                                  variant="outline" 
+                                  style={{ backgroundColor: `${group.color}20`, borderColor: group.color, color: group.color }}
+                                >
+                                  {group.name}
+                                </Badge>
+                              ) : 'Gruppe nicht gefunden';
+                            })()
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
                         </td>
                         <td className="py-3">
                           <Badge variant={user.isActive ? 'default' : 'destructive'}>

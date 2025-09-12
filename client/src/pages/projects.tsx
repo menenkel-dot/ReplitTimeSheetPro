@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 import type { Project, InsertProject, TimeEntryWithRelations } from "@shared/schema";
 
 export default function Projects() {
@@ -200,7 +200,7 @@ export default function Projects() {
                     <CardContent>
                       <ChartContainer
                         config={chartConfig}
-                        className="mx-auto aspect-square max-h-[300px]"
+                        className="mx-auto w-full h-[400px]"
                       >
                         <RechartsPieChart>
                           <ChartTooltip
@@ -212,15 +212,20 @@ export default function Projects() {
                             dataKey="value"
                             nameKey="name"
                             cx="50%"
-                            cy="50%"
-                            outerRadius={80}
+                            cy="40%"
+                            outerRadius={60}
                             fill="#8884d8"
-                            label={(entry) => `${entry.name}: ${entry.value}h`}
                           >
                             {hoursData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
+                          <Legend 
+                            verticalAlign="bottom"
+                            height={80}
+                            formatter={(value, entry) => `${value}: ${entry.payload?.value}h`}
+                            wrapperStyle={{ paddingTop: '20px' }}
+                          />
                         </RechartsPieChart>
                       </ChartContainer>
                     </CardContent>
@@ -239,7 +244,7 @@ export default function Projects() {
                     <CardContent>
                       <ChartContainer
                         config={chartConfig}
-                        className="mx-auto aspect-square max-h-[300px]"
+                        className="mx-auto w-full h-[400px]"
                       >
                         <RechartsPieChart>
                           <ChartTooltip
@@ -251,15 +256,20 @@ export default function Projects() {
                             dataKey="value"
                             nameKey="name"
                             cx="50%"
-                            cy="50%"
-                            outerRadius={80}
+                            cy="40%"
+                            outerRadius={60}
                             fill="#8884d8"
-                            label={(entry) => `${entry.name}: €${entry.value.toFixed(2)}`}
                           >
                             {costsData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
+                          <Legend 
+                            verticalAlign="bottom"
+                            height={80}
+                            formatter={(value, entry) => `${value}: €${entry.payload?.value?.toFixed(2)}`}
+                            wrapperStyle={{ paddingTop: '20px' }}
+                          />
                         </RechartsPieChart>
                       </ChartContainer>
                     </CardContent>

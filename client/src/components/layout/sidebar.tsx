@@ -8,7 +8,8 @@ import {
   Users, 
   Settings, 
   LogOut,
-  Gauge
+  Gauge,
+  Building2
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -24,6 +25,7 @@ export default function Sidebar() {
 
   const adminItems = [
     { path: "/users", icon: Users, label: "Benutzer", roles: ['admin'] },
+    { path: "/groups", icon: Building2, label: "Gruppen", roles: ['admin'] },
     { path: "/settings", icon: Settings, label: "Einstellungen", roles: ['admin'] },
   ];
 

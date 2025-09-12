@@ -1,8 +1,9 @@
 import { 
-  users, timeEntries, projects, holidays, workingHours,
+  users, timeEntries, projects, holidays, workingHours, groups,
   type User, type InsertUser, type TimeEntry, type InsertTimeEntry,
   type Project, type InsertProject, type Holiday, type InsertHoliday,
-  type WorkingHours, type InsertWorkingHours, type TimeEntryWithRelations
+  type WorkingHours, type InsertWorkingHours, type TimeEntryWithRelations,
+  type Group, type InsertGroup, type GroupWithRelations
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, asc, or } from "drizzle-orm";
@@ -46,6 +47,14 @@ export interface IStorage {
   getWorkingHoursByUser(userId: string): Promise<WorkingHours[]>;
   createWorkingHours(workingHours: InsertWorkingHours): Promise<WorkingHours>;
   updateWorkingHours(id: string, workingHours: Partial<InsertWorkingHours>): Promise<WorkingHours>;
+
+  // Groups
+  getAllGroups(): Promise<Group[]>;
+  getGroup(id: string): Promise<Group | undefined>;
+  createGroup(group: InsertGroup): Promise<Group>;
+  updateGroup(id: string, group: Partial<InsertGroup>): Promise<Group>;
+  deleteGroup(id: string): Promise<void>;
+  getGroupWithUsers(id: string): Promise<GroupWithRelations | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -143,6 +152,7 @@ export class DatabaseStorage implements IStorage {
           firstName: users.firstName,
           lastName: users.lastName,
           role: users.role,
+          groupId: users.groupId,
           hourlyRate: users.hourlyRate,
           password: users.password,
           targetHoursPerDay: users.targetHoursPerDay,
@@ -204,6 +214,7 @@ export class DatabaseStorage implements IStorage {
           firstName: users.firstName,
           lastName: users.lastName,
           role: users.role,
+          groupId: users.groupId,
           hourlyRate: users.hourlyRate,
           password: users.password,
           targetHoursPerDay: users.targetHoursPerDay,
@@ -281,6 +292,89 @@ export class DatabaseStorage implements IStorage {
   async updateWorkingHours(id: string, updateWorkingHours: Partial<InsertWorkingHours>): Promise<WorkingHours> {
     const [wh] = await db.update(workingHours).set(updateWorkingHours).where(eq(workingHours.id, id)).returning();
     return wh;
+  }
+
+  // Groups
+  async getAllGroups(): Promise<Group[]> {
+    return await db.select().from(groups).where(eq(groups.isActive, true)).orderBy(asc(groups.name));
+  }
+
+  async getGroup(id: string): Promise<Group | undefined> {
+    const [group] = await db.select().from(groups).where(eq(groups.id, id));
+    return group;
+  }
+
+  async createGroup(insertGroup: InsertGroup): Promise<Group> {
+    const [group] = await db.insert(groups).values(insertGroup).returning();
+    return group;
+  }
+
+  async updateGroup(id: string, updateGroup: Partial<InsertGroup>): Promise<Group> {
+    const [group] = await db.update(groups).set(updateGroup).where(eq(groups.id, id)).returning();
+    return group;
+  }
+
+  async deleteGroup(id: string): Promise<void> {
+    await db.update(groups).set({ isActive: false }).where(eq(groups.id, id));
+  }
+
+  async getGroupWithUsers(id: string): Promise<GroupWithRelations | undefined> {
+    const result = await db
+      .select({
+        id: groups.id,
+        name: groups.name,
+        description: groups.description,
+        color: groups.color,
+        isActive: groups.isActive,
+        createdAt: groups.createdAt,
+        users: {
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          role: users.role,
+          groupId: users.groupId,
+          hourlyRate: users.hourlyRate,
+          targetHoursPerDay: users.targetHoursPerDay,
+          isActive: users.isActive,
+          createdAt: users.createdAt
+        }
+      })
+      .from(groups)
+      .leftJoin(users, eq(groups.id, users.groupId))
+      .where(eq(groups.id, id));
+
+    if (result.length === 0) return undefined;
+
+    // Group the results to create the proper structure
+    const group = result[0];
+    const groupWithUsers: GroupWithRelations = {
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      color: group.color,
+      isActive: group.isActive,
+      createdAt: group.createdAt,
+      users: result
+        .filter(r => r.users && r.users.id !== null && r.users.isActive === true)
+        .map(r => ({
+          id: r.users!.id!,
+          username: r.users!.username!,
+          password: '', // Don't expose password
+          email: r.users!.email,
+          firstName: r.users!.firstName,
+          lastName: r.users!.lastName,
+          role: r.users!.role!,
+          groupId: r.users!.groupId,
+          hourlyRate: r.users!.hourlyRate,
+          targetHoursPerDay: r.users!.targetHoursPerDay,
+          isActive: r.users!.isActive,
+          createdAt: r.users!.createdAt
+        }))
+    };
+
+    return groupWithUsers;
   }
 }
 

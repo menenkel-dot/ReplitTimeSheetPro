@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertProjectSchema, insertTimeEntrySchema, insertHolidaySchema, insertUserSchema, InsertUser } from "@shared/schema";
+import { insertProjectSchema, insertTimeEntrySchema, insertHolidaySchema, insertUserSchema, insertGroupSchema, InsertUser } from "@shared/schema";
 import { z } from "zod";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -850,6 +850,84 @@ export function registerRoutes(app: Express): Server {
       res.json({ message: "Seed-Daten erfolgreich erstellt" });
     } catch (error) {
       res.status(500).json({ message: "Fehler beim Erstellen der Seed-Daten" });
+    }
+  });
+
+  // Groups API
+  app.get("/api/groups", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const groups = await storage.getAllGroups();
+      res.json(groups);
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Laden der Gruppen" });
+    }
+  });
+
+  app.post("/api/groups", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+
+    try {
+      const groupData = insertGroupSchema.parse(req.body);
+      const group = await storage.createGroup(groupData);
+      res.status(201).json(group);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Ungültige Gruppendaten", errors: error.errors });
+      }
+      // Handle unique constraint violation for group name
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        return res.status(409).json({ message: "Eine Gruppe mit diesem Namen existiert bereits" });
+      }
+      res.status(500).json({ message: "Fehler beim Erstellen der Gruppe" });
+    }
+  });
+
+  app.put("/api/groups/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+
+    try {
+      const groupData = insertGroupSchema.partial().parse(req.body);
+      const group = await storage.updateGroup(req.params.id, groupData);
+      if (!group) return res.sendStatus(404);
+      res.json(group);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Ungültige Gruppendaten", errors: error.errors });
+      }
+      // Handle unique constraint violation for group name
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        return res.status(409).json({ message: "Eine Gruppe mit diesem Namen existiert bereits" });
+      }
+      res.status(500).json({ message: "Fehler beim Aktualisieren der Gruppe" });
+    }
+  });
+
+  app.delete("/api/groups/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+
+    try {
+      await storage.deleteGroup(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Löschen der Gruppe" });
+    }
+  });
+
+  app.get("/api/groups/:id/users", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+    
+    try {
+      const group = await storage.getGroupWithUsers(req.params.id);
+      if (!group) return res.sendStatus(404);
+      res.json(group);
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Laden der Gruppe mit Benutzern" });
     }
   });
 

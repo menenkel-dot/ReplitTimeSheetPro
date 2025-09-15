@@ -81,6 +81,8 @@ export default function TimerWidget() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries", ""] }); // Also invalidate dashboard cache
+      // Immediately refetch the running entry to stop the timer display
+      queryClient.refetchQueries({ queryKey: ["/api/time-entries", "running"] });
       toast({
         title: "Timer gestoppt",
         description: "Die Zeiterfassung wurde beendet."

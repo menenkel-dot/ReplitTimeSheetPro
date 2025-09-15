@@ -14,7 +14,8 @@ export default function TimerWidget() {
 
   const { data: runningEntry } = useQuery<TimeEntry | null>({
     queryKey: ["/api/time-entries", "running"],
-    refetchInterval: 1000, // Refresh every second when timer is running
+    refetchInterval: (query) =>
+      (query.state.data as (TimeEntry | null) | undefined)?.isRunning ? 1000 : false,
   });
 
   const [displayTime, setDisplayTime] = useState("00:00:00");
@@ -52,7 +53,9 @@ export default function TimerWidget() {
       if (!res.ok) throw new Error("Fehler beim Starten des Timers");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (entry) => {
+      // Set the returned running entry into cache to enable polling immediately
+      queryClient.setQueryData(["/api/time-entries", "running"], entry);
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries", ""] }); // Also invalidate dashboard cache
       toast({
@@ -79,10 +82,10 @@ export default function TimerWidget() {
       return res.json();
     },
     onSuccess: () => {
+      // Immediately clear the running entry from cache to stop the timer display
+      queryClient.setQueryData<TimeEntry | null>(["/api/time-entries", "running"], null);
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries", ""] }); // Also invalidate dashboard cache
-      // Immediately refetch the running entry to stop the timer display
-      queryClient.refetchQueries({ queryKey: ["/api/time-entries", "running"] });
       toast({
         title: "Timer gestoppt",
         description: "Die Zeiterfassung wurde beendet."

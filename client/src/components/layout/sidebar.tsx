@@ -9,12 +9,25 @@ import {
   Settings, 
   LogOut,
   Gauge,
-  Building2
+  Building2,
+  Menu
 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { useState } from "react";
 
 export default function Sidebar() {
   const { user, logoutMutation } = useAuth();
   const [location] = useLocation();
+  const isMobile = useIsMobile();
+  const [isOpen, setIsOpen] = useState(false);
 
   const menuItems = [
     { path: "/dashboard", icon: Gauge, label: "Dashboard", roles: ['employee', 'admin'] },
@@ -37,8 +50,8 @@ export default function Sidebar() {
     return user && roles.includes(user.role);
   };
 
-  return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col">
+  const SidebarContent = () => (
+    <>
       <div className="p-6 border-b border-border">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -71,6 +84,7 @@ export default function Sidebar() {
                       : "hover:bg-accent hover:text-accent-foreground"
                   }`}
                   data-testid={`link-${item.label.toLowerCase().replace(' ', '-')}`}
+                  onClick={() => isMobile && setIsOpen(false)}
                 >
                   <Icon className="w-4 h-4" />
                   <span>{item.label}</span>
@@ -84,30 +98,32 @@ export default function Sidebar() {
               <div className="px-3 py-2 text-sm font-medium text-muted-foreground">
                 Administration
               </div>
+              <ul className="space-y-2">
+                {adminItems.map((item) => {
+                  if (!canAccessRoute(item.roles)) return null;
+                  
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.path}>
+                      <Link 
+                        href={item.path}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                          isActiveLink(item.path)
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-accent hover:text-accent-foreground"
+                        }`}
+                        data-testid={`link-${item.label.toLowerCase().replace(' ', '-')}`}
+                        onClick={() => isMobile && setIsOpen(false)}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{item.label}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
             </li>
           )}
-          
-          {adminItems.map((item) => {
-            if (!canAccessRoute(item.roles)) return null;
-            
-            const Icon = item.icon;
-            return (
-              <li key={item.path}>
-                <Link 
-                  href={item.path}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                    isActiveLink(item.path)
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-accent hover:text-accent-foreground"
-                  }`}
-                  data-testid={`link-${item.label.toLowerCase().replace(' ', '-')}`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
         </ul>
       </nav>
 
@@ -115,7 +131,10 @@ export default function Sidebar() {
         <Button
           variant="ghost"
           className="w-full justify-start"
-          onClick={() => logoutMutation.mutate()}
+          onClick={() => {
+            logoutMutation.mutate();
+            isMobile && setIsOpen(false);
+          }}
           disabled={logoutMutation.isPending}
           data-testid="button-logout"
         >
@@ -123,6 +142,41 @@ export default function Sidebar() {
           <span>Abmelden</span>
         </Button>
       </div>
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="fixed top-4 left-4 z-40 md:hidden"
+              data-testid="button-menu-toggle"
+            >
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Menü öffnen</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Navigation</SheetTitle>
+              <SheetDescription>Hauptnavigation der Zeiterfassungs-App</SheetDescription>
+            </SheetHeader>
+            <div className="flex flex-col h-full bg-card">
+              <SidebarContent />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+
+  return (
+    <aside className="hidden md:flex w-64 bg-card border-r border-border flex-col">
+      <SidebarContent />
     </aside>
   );
 }

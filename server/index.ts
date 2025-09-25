@@ -5,6 +5,7 @@ import { config } from "dotenv";
 config();
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { db, pool } from "./db";
 
 const app = express();
 app.use(express.json());
@@ -40,8 +41,37 @@ app.use((req, res, next) => {
   next();
 });
 
+// Database connection validation function
+async function validateDatabaseConnection() {
+  try {
+    log("Validating database connection...");
+    
+    // Check required environment variables
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is required");
+    }
+    
+    if (!process.env.SESSION_SECRET) {
+      throw new Error("SESSION_SECRET environment variable is required");
+    }
+    
+    // Test database connectivity with a simple query
+    await db.execute("SELECT 1");
+    log("Database connection validated successfully");
+    
+    return true;
+  } catch (error) {
+    console.error("Database connection validation failed:", error);
+    throw error;
+  }
+}
+
 (async () => {
-  const server = await registerRoutes(app);
+  try {
+    // Validate database connection before starting server
+    await validateDatabaseConnection();
+    
+    const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -65,12 +95,57 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+    const port = parseInt(process.env.PORT || '5000', 10);
+    
+    // Store server reference for graceful shutdown
+    const serverInstance = server.listen({
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      log(`serving on port ${port}`);
+    });
+    
+    // Graceful shutdown handling
+    const gracefulShutdown = async (signal: string) => {
+      log(`Received ${signal}, starting graceful shutdown...`);
+      
+      serverInstance.close(() => {
+        log('HTTP server closed');
+        
+        // Close database connections
+        pool.end(() => {
+          log('Database connections closed');
+          process.exit(0);
+        });
+      });
+      
+      // Force shutdown after 30 seconds
+      setTimeout(() => {
+        console.error('Forced shutdown after 30 seconds');
+        process.exit(1);
+      }, 30000);
+    };
+    
+    // Handle shutdown signals
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    
+    // Log detailed error information
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    
+    // Check if it's a database connection error
+    if (error instanceof Error && error.message.includes('DATABASE_URL')) {
+      console.error('Database configuration error. Please check your DATABASE_URL environment variable.');
+    }
+    
+    // Exit with error code
+    process.exit(1);
+  }
 })();

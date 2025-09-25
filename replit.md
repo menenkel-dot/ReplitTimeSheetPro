@@ -71,3 +71,28 @@ Preferred communication style: Simple, everyday language.
 
 ### Date & Time Utilities
 - **date-fns**: Lightweight date manipulation and formatting library with German locale support
+
+## Production Deployment
+
+### Deployment Infrastructure
+- **Target**: Replit autoscale deployment for optimal cost efficiency and automatic scaling
+- **Build Process**: Vite frontend build + esbuild backend bundling for production optimization
+- **Environment**: Node.js production environment with optimized static asset serving
+
+### Health Monitoring & Reliability
+- **Health Check Endpoint**: `/health` endpoint for deployment service verification and monitoring
+- **Database Validation**: Pre-startup database connectivity and environment variable validation
+- **Error Handling**: Comprehensive startup error handling with detailed logging and graceful failures
+- **Graceful Shutdown**: Proper signal handling (SIGTERM/SIGINT) with orderly database connection cleanup
+- **Connection Pooling**: Optimized PostgreSQL connection management with automatic error recovery
+
+### Build & Deployment Scripts
+- **Build**: `npm run build` - Compiles frontend assets and bundles backend server
+- **Start**: `npm start` - Launches production server with proper environment configuration
+- **Health Check**: `curl /health` - Verifies application and database status for monitoring
+
+### Environment Requirements
+- **DATABASE_URL**: PostgreSQL connection string (required for startup)
+- **SESSION_SECRET**: Session encryption key (required for authentication)
+- **PORT**: Server port (defaults to 5000, configured for Replit platform)
+- **NODE_ENV**: Environment mode (set to 'production' for deployment)

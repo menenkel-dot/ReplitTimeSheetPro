@@ -11,11 +11,11 @@ export default function Dashboard() {
   return (
     <MainLayout>
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-card border-b border-border p-6">
-          <div className="flex items-center justify-between">
+        <header className="bg-card border-b border-border p-4 md:p-6">
+          <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
             <div>
-              <h1 className="text-2xl font-bold" data-testid="text-dashboard-title">Dashboard</h1>
-              <p className="text-muted-foreground" data-testid="text-current-date">
+              <h1 className="text-xl md:text-2xl font-bold" data-testid="text-dashboard-title">Dashboard</h1>
+              <p className="text-sm md:text-base text-muted-foreground" data-testid="text-current-date">
                 Heute ist {new Date().toLocaleDateString('de-DE', { 
                   weekday: 'long', 
                   year: 'numeric', 

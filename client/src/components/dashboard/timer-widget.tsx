@@ -5,12 +5,14 @@ import { Play, Pause, RotateCcw, Plus } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { TimeEntry } from "@shared/schema";
 import NewEntryModal from "@/components/time-entries/new-entry-modal";
 
 export default function TimerWidget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const { data: runningEntry } = useQuery<TimeEntry | null>({
     queryKey: ["/api/time-entries", "running"],
@@ -116,33 +118,33 @@ export default function TimerWidget() {
   };
 
   return (
-    <div className="flex items-center gap-4">
-      <Card className="bg-accent border border-border min-w-[200px]">
-        <CardContent className="p-4">
+    <div className={`flex ${isMobile ? "flex-col space-y-4" : "items-center gap-4"} w-full ${isMobile ? "max-w-full" : ""}`}>
+      <Card className={`bg-accent border border-border ${isMobile ? "w-full" : "min-w-[200px]"}`}>
+        <CardContent className={`${isMobile ? "p-3" : "p-4"}`}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Aktuelle Session</span>
+            <span className={`${isMobile ? "text-xs" : "text-sm"} font-medium`}>Aktuelle Session</span>
             {runningEntry && runningEntry.isRunning && (
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             )}
           </div>
-          <div className="text-2xl font-bold font-mono mb-3" data-testid="text-timer-display">
+          <div className={`${isMobile ? "text-xl" : "text-2xl"} font-bold font-mono mb-3 text-center`} data-testid="text-timer-display">
             {displayTime}
           </div>
           <div className="flex gap-2">
             <Button
               onClick={handleStartStop}
-              className="flex-1"
+              className={`flex-1 ${isMobile ? "h-12 text-base" : ""}`}
               disabled={startTimerMutation.isPending || stopTimerMutation.isPending}
               data-testid="button-timer-toggle"
             >
               {runningEntry && runningEntry.isRunning ? (
                 <>
-                  <Pause className="w-3 h-3 mr-1" />
+                  <Pause className={`${isMobile ? "w-4 h-4" : "w-3 h-3"} mr-1`} />
                   Stopp
                 </>
               ) : (
                 <>
-                  <Play className="w-3 h-3 mr-1" />
+                  <Play className={`${isMobile ? "w-4 h-4" : "w-3 h-3"} mr-1`} />
                   Start
                 </>
               )}
@@ -152,15 +154,20 @@ export default function TimerWidget() {
               onClick={resetTimer}
               disabled={startTimerMutation.isPending || stopTimerMutation.isPending}
               data-testid="button-timer-reset"
+              className={`${isMobile ? "h-12 min-w-[48px]" : ""}`}
             >
-              <RotateCcw className="w-3 h-3" />
+              <RotateCcw className={`${isMobile ? "w-4 h-4" : "w-3 h-3"}`} />
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Button onClick={() => setIsModalOpen(true)} data-testid="button-new-entry">
-        <Plus className="w-4 h-4 mr-2" />
+      <Button 
+        onClick={() => setIsModalOpen(true)} 
+        data-testid="button-new-entry"
+        className={`${isMobile ? "w-full h-12 text-base" : ""}`}
+      >
+        <Plus className={`${isMobile ? "w-5 h-5" : "w-4 h-4"} mr-2`} />
         Neuer Eintrag
       </Button>
 
